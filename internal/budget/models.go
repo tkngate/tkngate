@@ -30,3 +30,11 @@ type BudgetStatus struct {
 	RemainingUSD  float64    `json:"remaining_usd"`
 	Zone          BudgetZone `json:"zone"`
 }
+
+type PoolNode struct {
+	NodeID               string
+	ProviderType         string
+	BlindedKeyHash       string
+	MeasuredTpmLimit     int
+	RemainingTokensQuota int
+}
