@@ -54,6 +54,14 @@ func InitLedger() error {
 		current_state TEXT DEFAULT 'GREEN',
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
+	
+	CREATE TABLE IF NOT EXISTS token_pool_nodes (
+		node_id TEXT PRIMARY KEY,
+		provider_type TEXT NOT NULL,
+		blinded_key_hash TEXT NOT NULL,
+		measured_tpm_limit INTEGER NOT NULL,
+		remaining_tokens_quota INTEGER NOT NULL
+	);
 	`
 	if _, err := db.Exec(query); err != nil {
 		return err
@@ -119,4 +127,31 @@ func (l *Ledger) EnsureSession(sessionID string, allocatedBudget float64) error 
 	
 	_, err := l.db.Exec(`INSERT OR IGNORE INTO tkngate_sessions (session_id, allocated_budget_usd) VALUES (?, ?)`, sessionID, allocatedBudget)
 	return err
+}
+
+func (l *Ledger) AddPoolNode(node PoolNode) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	query := `INSERT INTO token_pool_nodes (node_id, provider_type, blinded_key_hash, measured_tpm_limit, remaining_tokens_quota) VALUES (?, ?, ?, ?, ?)`
+	_, err := l.db.Exec(query, node.NodeID, node.ProviderType, node.BlindedKeyHash, node.MeasuredTpmLimit, node.RemainingTokensQuota)
+	return err
+}
+
+func (l *Ledger) GetPoolNodes(provider string) ([]PoolNode, error) {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	rows, err := l.db.Query(`SELECT node_id, provider_type, blinded_key_hash, measured_tpm_limit, remaining_tokens_quota FROM token_pool_nodes WHERE provider_type = ?`, provider)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var nodes []PoolNode
+	for rows.Next() {
+		var n PoolNode
+		if err := rows.Scan(&n.NodeID, &n.ProviderType, &n.BlindedKeyHash, &n.MeasuredTpmLimit, &n.RemainingTokensQuota); err == nil {
+			nodes = append(nodes, n)
+		}
+	}
+	return nodes, nil
 }

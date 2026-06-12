@@ -7,7 +7,9 @@ import (
 	"os/signal"
 	"tkngate/internal/budget"
 	"tkngate/internal/config"
+	"tkngate/internal/crypto"
 	"tkngate/internal/logging"
+	"tkngate/internal/pool"
 	"tkngate/internal/proxy"
 
 	"github.com/spf13/cobra"
@@ -31,6 +33,14 @@ var serveCmd = &cobra.Command{
 			logging.Logger.Error("failed to init ledger", "error", err)
 			os.Exit(1)
 		}
+
+		// Init crypto engine
+		if err := crypto.InitCrypto(); err != nil {
+			logging.Logger.Error("failed to init crypto engine", "error", err)
+		}
+
+		// Init DRR
+		pool.InitDRR()
 
 		// Init proxy
 		p, err := proxy.NewProxy()

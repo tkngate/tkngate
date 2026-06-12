@@ -13,6 +13,7 @@ import (
 	"tkngate/internal/compressor"
 	"tkngate/internal/config"
 	"tkngate/internal/logging"
+	"tkngate/internal/pool"
 	"tkngate/internal/tokenizer"
 )
 
@@ -97,6 +98,14 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 
 	// 3. EXECUTE REQUEST
+	if pool.GlobalDRR != nil {
+		dynamicKey, err := pool.GlobalDRR.GetNextKey(provider, 0.0)
+		if err == nil && dynamicKey != "" {
+			req.Header.Set("Authorization", "Bearer "+dynamicKey)
+			logging.Logger.Info("DRR Engine rotated key", "provider", provider)
+		}
+	}
+
 	res, err := t.Transport.RoundTrip(req)
 	if err != nil {
 		return res, err
