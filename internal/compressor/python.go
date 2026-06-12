@@ -22,7 +22,8 @@ func compressPython(content string) string {
 		if trimmed == "" {
 			// Skip empty lines inside a dropped block, preserve otherwise
 			if !inFunctionBlock {
-				result.WriteString(line + "\n")
+				result.WriteString(line)
+				result.WriteByte('\n')
 			}
 			continue
 		}
@@ -38,7 +39,8 @@ func compressPython(content string) string {
 		}
 		
 		// If we are here, we are not dropping the line.
-		result.WriteString(line + "\n")
+		result.WriteString(line)
+		result.WriteByte('\n')
 		
 		// Does this line declare a function or class?
 		if (strings.HasPrefix(trimmed, "def ") || strings.HasPrefix(trimmed, "class ")) && strings.HasSuffix(trimmed, ":") {
@@ -47,7 +49,8 @@ func compressPython(content string) string {
 			
 			// Insert the dummy pass statement at the next indentation level
 			// (assume 4 spaces for Python standard)
-			result.WriteString(line[:indent] + "    pass  # body omitted\n")
+			result.WriteString(line[:indent])
+			result.WriteString("    pass  # body omitted\n")
 		}
 	}
 	

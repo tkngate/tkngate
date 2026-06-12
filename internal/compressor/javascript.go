@@ -21,9 +21,10 @@ func compressJS(content string) string {
 		if inFunctionBlock {
 			// We need to count brackets on this line to see if we exit the function
 			for _, char := range line {
-				if char == '{' {
+				switch char {
+				case '{':
 					bracketDepth++
-				} else if char == '}' {
+				case '}':
 					bracketDepth--
 				}
 			}
@@ -32,7 +33,8 @@ func compressJS(content string) string {
 				inFunctionBlock = false
 				// Maintain indentation
 				indent := len(line) - len(strings.TrimLeft(line, " \t"))
-				result.WriteString(line[:indent] + "}\n")
+				result.WriteString(line[:indent])
+				result.WriteString("}\n")
 			}
 			continue
 		}
@@ -44,14 +46,16 @@ func compressJS(content string) string {
 				   (strings.Contains(trimmed, "(") && strings.Contains(trimmed, ")") && strings.HasSuffix(trimmed, "{"))
 				   
 		if isFunc && strings.HasSuffix(trimmed, "{") {
-			result.WriteString(line + "\n")
+			result.WriteString(line)
+			result.WriteByte('\n')
 			
 			// Calculate starting depth for this line
 			bracketDepth = 0
 			for _, char := range line {
-				if char == '{' {
+				switch char {
+				case '{':
 					bracketDepth++
-				} else if char == '}' {
+				case '}':
 					bracketDepth--
 				}
 			}
@@ -59,12 +63,14 @@ func compressJS(content string) string {
 			if bracketDepth > 0 {
 				inFunctionBlock = true
 				indent := len(line) - len(strings.TrimLeft(line, " \t"))
-				result.WriteString(strings.Repeat(" ", indent+2) + "/* body omitted */\n")
+				result.WriteString(strings.Repeat(" ", indent+2))
+				result.WriteString("/* body omitted */\n")
 			}
 			continue
 		}
 		
-		result.WriteString(line + "\n")
+		result.WriteString(line)
+		result.WriteByte('\n')
 	}
 	
 	// Trim the final trailing newline
