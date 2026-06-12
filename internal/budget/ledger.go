@@ -155,3 +155,30 @@ func (l *Ledger) GetPoolNodes(provider string) ([]PoolNode, error) {
 	}
 	return nodes, nil
 }
+
+func (l *Ledger) GetSessions() ([]SessionState, error) {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	rows, err := l.db.Query(`SELECT session_id, allocated_budget_usd, consumed_budget_usd, current_state, created_at FROM tkngate_sessions`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var sessions []SessionState
+	for rows.Next() {
+		var s SessionState
+		if err := rows.Scan(&s.SessionID, &s.AllocatedBudget, &s.ConsumedBudget, &s.CurrentState, &s.CreatedAt); err == nil {
+			sessions = append(sessions, s)
+		}
+	}
+	return sessions, nil
+}
+
+func (l *Ledger) GetTransactionCount() (int, error) {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	var count int
+	err := l.db.QueryRow(`SELECT COUNT(*) FROM transactions`).Scan(&count)
+	return count, err
+}
