@@ -6,11 +6,36 @@ import (
 	"go/parser"
 	"go/printer"
 	"go/token"
+	"strings"
 )
 
-// Compress evaluates the content and, if applicable, structurally reduces it.
+// Compress evaluates the content and structurally reduces it based on its language.
 func Compress(content string) string {
-	// For v0.2.0, we attempt to parse the content as Go code.
+	if isGoCode(content) {
+		return compressGo(content)
+	} else if isPythonCode(content) {
+		return compressPython(content)
+	} else if isJSCode(content) {
+		return compressJS(content)
+	}
+	
+	// Fallback: return unchanged
+	return content
+}
+
+func isGoCode(content string) bool {
+	return strings.Contains(content, "package ") && strings.Contains(content, "func ")
+}
+
+func isPythonCode(content string) bool {
+	return strings.Contains(content, "def ") || strings.Contains(content, "class ")
+}
+
+func isJSCode(content string) bool {
+	return strings.Contains(content, "function ") || strings.Contains(content, "=>")
+}
+
+func compressGo(content string) string {
 	// If it fails to parse (e.g. it's natural language or Python), we return it unchanged.
 	fset := token.NewFileSet()
 	node, err := parser.ParseFile(fset, "", content, 0)
