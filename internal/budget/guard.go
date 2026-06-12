@@ -40,9 +40,10 @@ func CheckBudget() (BudgetStatus, error) {
 	}
 
 	// Log warnings if we shift zones
-	if zone == ZoneAmber {
+	switch zone {
+	case ZoneAmber:
 		logging.Logger.Warn("budget amber zone reached", "spent", spent, "limit", limit)
-	} else if zone == ZoneRed {
+	case ZoneRed:
 		logging.Logger.Error("budget red zone reached - circuit breaker tripped", "spent", spent, "limit", limit)
 	}
 
@@ -86,9 +87,10 @@ func CheckSessionBudget(sessionID string) (BudgetStatus, error) {
 		Zone:          zone,
 	}
 
-	if zone == ZoneAmber {
+	switch zone {
+	case ZoneAmber:
 		logging.Logger.Warn("session budget amber zone reached", "session", sessionID, "spent", spent, "limit", limit)
-	} else if zone == ZoneRed {
+	case ZoneRed:
 		logging.Logger.Error("session budget red zone reached - circuit breaker tripped", "session", sessionID, "spent", spent, "limit", limit)
 	}
 

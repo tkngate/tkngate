@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"tkngate/internal/budget"
+	"tkngate/internal/compressor"
 	"tkngate/internal/config"
 	"tkngate/internal/logging"
 	"tkngate/internal/tokenizer"
@@ -75,6 +76,22 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 				// Update req.Body and ContentLength to the new modified body
 				req.Body = io.NopCloser(bytes.NewBuffer(inputBody))
 				req.ContentLength = int64(len(inputBody))
+			}
+		}
+
+		// 2.5. CONTEXT COMPRESSOR
+		if config.Cfg.Compressor.Enabled {
+			inTokens := t.Counter.Count(string(inputBody), reqModel)
+			if inTokens > config.Cfg.Compressor.SoftTokenLimit {
+				logging.Logger.Info("Payload exceeds soft limit, running context compressor", "tokens", inTokens, "limit", config.Cfg.Compressor.SoftTokenLimit)
+				
+				compressedBody := compressPayload(inputBody)
+				if len(compressedBody) < len(inputBody) {
+					logging.Logger.Info("Context compression successful", "original_bytes", len(inputBody), "new_bytes", len(compressedBody))
+					inputBody = compressedBody
+					req.Body = io.NopCloser(bytes.NewBuffer(inputBody))
+					req.ContentLength = int64(len(inputBody))
+				}
 			}
 		}
 	}
@@ -164,5 +181,44 @@ func replaceModel(payload []byte, newModel string) []byte {
 			return modified
 		}
 	}
+	return payload
+}
+
+func compressPayload(payload []byte) []byte {
+	var data map[string]interface{}
+	if err := json.Unmarshal(payload, &data); err != nil {
+		return payload
+	}
+
+	messages, ok := data["messages"].([]interface{})
+	if !ok {
+		return payload
+	}
+
+	modified := false
+	for i, msg := range messages {
+		msgMap, ok := msg.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		
+		content, ok := msgMap["content"].(string)
+		if ok && len(content) > 100 { 
+			compressed := compressor.Compress(content)
+			if len(compressed) < len(content) {
+				msgMap["content"] = compressed
+				messages[i] = msgMap
+				modified = true
+			}
+		}
+	}
+
+	if modified {
+		data["messages"] = messages
+		if newPayload, err := json.Marshal(data); err == nil {
+			return newPayload
+		}
+	}
+
 	return payload
 }

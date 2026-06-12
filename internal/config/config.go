@@ -9,8 +9,9 @@ import (
 
 type Config struct {
 	Server    ServerConfig              `mapstructure:"server"`
-	Providers map[string]ProviderConfig `mapstructure:"providers"`
-	Budget    BudgetConfig              `mapstructure:"budget"`
+	Providers  map[string]ProviderConfig `mapstructure:"providers"`
+	Budget     BudgetConfig              `mapstructure:"budget"`
+	Compressor CompressorConfig          `mapstructure:"compressor"`
 }
 
 type ServerConfig struct {
@@ -31,6 +32,12 @@ type BudgetConfig struct {
 	AmberThresholdPct int     `mapstructure:"amber_threshold_pct"`
 	RedThresholdPct   int     `mapstructure:"red_threshold_pct"`
 	ResetInterval     string  `mapstructure:"reset_interval"`
+}
+
+type CompressorConfig struct {
+	Enabled        bool   `mapstructure:"enabled"`
+	SoftTokenLimit int    `mapstructure:"soft_token_limit"`
+	Strategy       string `mapstructure:"strategy"`
 }
 
 var Cfg Config
@@ -74,6 +81,13 @@ func validateConfig() error {
 	}
 	if Cfg.Budget.RedThresholdPct == 0 {
 		Cfg.Budget.RedThresholdPct = 95
+	}
+
+	if Cfg.Compressor.SoftTokenLimit == 0 {
+		Cfg.Compressor.SoftTokenLimit = 4000 // Default 4k token soft limit
+	}
+	if Cfg.Compressor.Strategy == "" {
+		Cfg.Compressor.Strategy = "go-ast"
 	}
 
 	return nil
