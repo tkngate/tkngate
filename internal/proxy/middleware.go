@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"tkngate/internal/budget"
+	"tkngate/internal/cache"
 	"tkngate/internal/compressor"
 	"tkngate/internal/config"
 	"tkngate/internal/logging"
@@ -97,6 +98,23 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		}
 	}
 
+	// 2.8. SEMANTIC CACHE CHECK
+	if cache.GlobalCache != nil && len(inputBody) > 0 {
+		if hit := cache.GlobalCache.Get(inputBody); hit != nil {
+			logging.Logger.Info("Semantic cache HIT — returning cached response", "provider", provider, "cost_saved", "$0.00")
+			return &http.Response{
+				Status:        fmt.Sprintf("%d OK", hit.StatusCode),
+				StatusCode:    hit.StatusCode,
+				Proto:         "HTTP/1.1",
+				ProtoMajor:    1,
+				ProtoMinor:    1,
+				Body:          io.NopCloser(bytes.NewBuffer(hit.ResponseBody)),
+				ContentLength: int64(len(hit.ResponseBody)),
+				Header:        http.Header{"X-Tkngate-Cache": []string{"HIT"}},
+			}, nil
+		}
+	}
+
 	// 3. EXECUTE REQUEST
 	if pool.GlobalDRR != nil {
 		dynamicKey, err := pool.GlobalDRR.GetNextKey(provider, 0.0)
@@ -116,6 +134,13 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	if res.Body != nil {
 		outputBody, _ = io.ReadAll(res.Body)
 		res.Body = io.NopCloser(bytes.NewBuffer(outputBody))
+	}
+
+	// 4.5. STORE IN SEMANTIC CACHE (only on success)
+	if cache.GlobalCache != nil && res.StatusCode >= 200 && res.StatusCode < 300 && len(inputBody) > 0 {
+		cost := tokenizer.EstimateCost(provider, reqModel, t.Counter.Count(string(inputBody), reqModel), t.Counter.Count(string(outputBody), reqModel))
+		cache.GlobalCache.Put(inputBody, outputBody, res.StatusCode, cost)
+		res.Header.Set("X-Tkngate-Cache", "MISS")
 	}
 
 	// 5. TOKEN COUNTING & LEDGER UPDATE

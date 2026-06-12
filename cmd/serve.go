@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"tkngate/internal/budget"
+	"tkngate/internal/cache"
 	"tkngate/internal/config"
 	"tkngate/internal/crypto"
 	"tkngate/internal/logging"
@@ -41,6 +42,12 @@ var serveCmd = &cobra.Command{
 
 		// Init DRR
 		pool.InitDRR()
+
+		// Init semantic cache
+		if config.Cfg.Cache.Enabled {
+			cache.InitCache(config.Cfg.Cache.MaxEntries, config.Cfg.Cache.TTLSeconds)
+			logging.Logger.Info("Semantic cache enabled")
+		}
 
 		// Init proxy
 		p, err := proxy.NewProxy()

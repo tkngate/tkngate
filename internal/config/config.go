@@ -8,10 +8,11 @@ import (
 )
 
 type Config struct {
-	Server    ServerConfig              `mapstructure:"server"`
+	Server     ServerConfig              `mapstructure:"server"`
 	Providers  map[string]ProviderConfig `mapstructure:"providers"`
 	Budget     BudgetConfig              `mapstructure:"budget"`
 	Compressor CompressorConfig          `mapstructure:"compressor"`
+	Cache      CacheConfig               `mapstructure:"cache"`
 }
 
 type ServerConfig struct {
@@ -38,6 +39,12 @@ type CompressorConfig struct {
 	Enabled        bool   `mapstructure:"enabled"`
 	SoftTokenLimit int    `mapstructure:"soft_token_limit"`
 	Strategy       string `mapstructure:"strategy"`
+}
+
+type CacheConfig struct {
+	Enabled    bool `mapstructure:"enabled"`
+	MaxEntries int  `mapstructure:"max_entries"`
+	TTLSeconds int  `mapstructure:"ttl_seconds"`
 }
 
 var Cfg Config
@@ -88,6 +95,13 @@ func validateConfig() error {
 	}
 	if Cfg.Compressor.Strategy == "" {
 		Cfg.Compressor.Strategy = "go-ast"
+	}
+
+	if Cfg.Cache.MaxEntries == 0 {
+		Cfg.Cache.MaxEntries = 512
+	}
+	if Cfg.Cache.TTLSeconds == 0 {
+		Cfg.Cache.TTLSeconds = 300
 	}
 
 	return nil
