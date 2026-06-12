@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"tkngate/internal/budget"
 	"tkngate/internal/crypto"
+	"tkngate/internal/validator"
 
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
@@ -27,6 +28,12 @@ var donateCmd = &cobra.Command{
 		if poolKey == "" {
 			return fmt.Errorf("must provide --key")
 		}
+
+		fmt.Printf("Validating %s API key...\n", poolProvider)
+		if err := validator.ValidateKey(poolProvider, poolKey); err != nil {
+			return fmt.Errorf("\n❌ Validation Failed: %v\nPlease provide a real, active API key.", err)
+		}
+		fmt.Printf("✅ Key is valid!\n")
 
 		if err := crypto.InitCrypto(); err != nil {
 			return fmt.Errorf("crypto init failed: %v", err)
