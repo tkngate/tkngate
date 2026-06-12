@@ -14,6 +14,7 @@ const (
 // Transaction represents a single API request/response cycle
 type Transaction struct {
 	ID               int64     `json:"id"`
+	SessionID        string    `json:"session_id,omitempty"`
 	Provider         string    `json:"provider"`
 	Model            string    `json:"model"`
 	InputTokens      int       `json:"input_tokens"`

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"tkngate/internal/budget"
+	"tkngate/internal/config"
 	"tkngate/internal/logging"
 	"tkngate/internal/tokenizer"
 )
@@ -29,22 +30,53 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		provider = pathParts[0]
 	}
 
-	// 1. BUDGET GUARD
+	// 1. BUDGET GUARD (Global)
 	status, err := budget.CheckBudget()
 	if err != nil {
 		logging.Logger.Error("budget check failed", "error", err)
 	} else if status.Zone == budget.ZoneRed {
-		// Circuit Breaker triggered
-		logging.Logger.Error("Request blocked by budget circuit breaker", "provider", provider)
-		return blockRequest("Token Budget Exhausted")
+		logging.Logger.Error("Request blocked by global budget circuit breaker", "provider", provider)
+		return blockRequest("Global Token Budget Exhausted")
 	}
 
-	// 2. CAPTURE INPUT (For token counting)
+	sessionID := req.Header.Get("X-Tkngate-Session-ID")
+	sessionZone := budget.ZoneGreen
+	if sessionID != "" {
+		sStatus, err := budget.CheckSessionBudget(sessionID)
+		if err != nil {
+			logging.Logger.Error("session budget check failed", "error", err)
+		} else {
+			sessionZone = sStatus.Zone
+			if sessionZone == budget.ZoneRed {
+				logging.Logger.Error("Request blocked by session budget circuit breaker", "session", sessionID)
+				return blockRequest(fmt.Sprintf("Session Token Budget Exhausted: %s", sessionID))
+			}
+		}
+	}
+
+	// 2. CAPTURE INPUT (For token counting & rewriting)
 	var inputBody []byte
 	var reqModel string
 	if req.Body != nil {
 		inputBody, _ = captureBody(req)
 		reqModel = extractModel(inputBody)
+		
+		// Model Downgrade in Amber Zone
+		if sessionZone == budget.ZoneAmber {
+			fallback := config.Cfg.Budget.FallbackModel
+			if fallback == "" {
+				fallback = "gpt-4o-mini"
+			}
+			if reqModel != fallback {
+				logging.Logger.Info("Session in Amber zone, downgrading model", "from", reqModel, "to", fallback, "session", sessionID)
+				inputBody = replaceModel(inputBody, fallback)
+				reqModel = fallback
+				
+				// Update req.Body and ContentLength to the new modified body
+				req.Body = io.NopCloser(bytes.NewBuffer(inputBody))
+				req.ContentLength = int64(len(inputBody))
+			}
+		}
 	}
 
 	// 3. EXECUTE REQUEST
@@ -75,6 +107,7 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		cost := tokenizer.EstimateCost(provider, reqModel, inTokens, outTokens)
 
 		tx := budget.Transaction{
+			SessionID:        sessionID,
 			Provider:         provider,
 			Model:            reqModel,
 			InputTokens:      inTokens,
@@ -121,4 +154,15 @@ func extractModel(payload []byte) string {
 		}
 	}
 	return "unknown"
+}
+
+func replaceModel(payload []byte, newModel string) []byte {
+	var data map[string]interface{}
+	if err := json.Unmarshal(payload, &data); err == nil {
+		data["model"] = newModel
+		if modified, err := json.Marshal(data); err == nil {
+			return modified
+		}
+	}
+	return payload
 }

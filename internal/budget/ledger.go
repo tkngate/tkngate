@@ -38,6 +38,7 @@ func InitLedger() error {
 	query := `
 	CREATE TABLE IF NOT EXISTS transactions (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		session_id TEXT DEFAULT '',
 		provider TEXT NOT NULL,
 		model TEXT NOT NULL,
 		input_tokens INTEGER DEFAULT 0,
@@ -45,10 +46,21 @@ func InitLedger() error {
 		estimated_cost_usd REAL DEFAULT 0.0,
 		timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
+	
+	CREATE TABLE IF NOT EXISTS tkngate_sessions (
+		session_id TEXT PRIMARY KEY,
+		allocated_budget_usd REAL NOT NULL,
+		consumed_budget_usd REAL DEFAULT 0.0,
+		current_state TEXT DEFAULT 'GREEN',
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	);
 	`
 	if _, err := db.Exec(query); err != nil {
 		return err
 	}
+	
+	// Add session_id to existing table if migrating from v0.0.1
+	db.Exec(`ALTER TABLE transactions ADD COLUMN session_id TEXT DEFAULT ''`)
 
 	GlobalLedger = &Ledger{db: db}
 	return nil
@@ -58,10 +70,17 @@ func (l *Ledger) RecordTransaction(tx Transaction) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	query := `INSERT INTO transactions (provider, model, input_tokens, output_tokens, estimated_cost_usd, timestamp) 
-			  VALUES (?, ?, ?, ?, ?, ?)`
+	query := `INSERT INTO transactions (session_id, provider, model, input_tokens, output_tokens, estimated_cost_usd, timestamp) 
+			  VALUES (?, ?, ?, ?, ?, ?, ?)`
 
-	_, err := l.db.Exec(query, tx.Provider, tx.Model, tx.InputTokens, tx.OutputTokens, tx.EstimatedCostUSD, time.Now())
+	_, err := l.db.Exec(query, tx.SessionID, tx.Provider, tx.Model, tx.InputTokens, tx.OutputTokens, tx.EstimatedCostUSD, time.Now())
+	if err != nil {
+		return err
+	}
+	
+	if tx.SessionID != "" {
+		_, err = l.db.Exec(`UPDATE tkngate_sessions SET consumed_budget_usd = consumed_budget_usd + ? WHERE session_id = ?`, tx.EstimatedCostUSD, tx.SessionID)
+	}
 	return err
 }
 
@@ -79,5 +98,25 @@ func (l *Ledger) Reset() error {
 	defer l.mu.Unlock()
 
 	_, err := l.db.Exec(`DELETE FROM transactions`)
+	if err == nil {
+		l.db.Exec(`DELETE FROM tkngate_sessions`)
+	}
+	return err
+}
+
+func (l *Ledger) GetSessionSpend(sessionID string) (float64, error) {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+
+	var total float64
+	err := l.db.QueryRow(`SELECT COALESCE(SUM(estimated_cost_usd), 0.0) FROM transactions WHERE session_id = ?`, sessionID).Scan(&total)
+	return total, err
+}
+
+func (l *Ledger) EnsureSession(sessionID string, allocatedBudget float64) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	
+	_, err := l.db.Exec(`INSERT OR IGNORE INTO tkngate_sessions (session_id, allocated_budget_usd) VALUES (?, ?)`, sessionID, allocatedBudget)
 	return err
 }
