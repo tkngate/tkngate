@@ -30,3 +30,9 @@ cache:
   max_entries: 512          # Max cached responses in memory
   ttl_seconds: 300          # Cache entries expire after 5 minutes
 
+telemetry:
+  enabled: true
+  host: "127.0.0.1"
+  port: 7478
+
+

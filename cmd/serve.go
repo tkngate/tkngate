@@ -12,6 +12,7 @@ import (
 	"tkngate/internal/logging"
 	"tkngate/internal/pool"
 	"tkngate/internal/proxy"
+	"tkngate/internal/api"
 
 	"github.com/spf13/cobra"
 )
@@ -47,6 +48,15 @@ var serveCmd = &cobra.Command{
 		if config.Cfg.Cache.Enabled {
 			cache.InitCache(config.Cfg.Cache.MaxEntries, config.Cfg.Cache.TTLSeconds)
 			logging.Logger.Info("Semantic cache enabled")
+		}
+
+		// Init Telemetry API
+		if config.Cfg.Telemetry.Enabled {
+			go func() {
+				if err := api.StartTelemetryServer(config.Cfg.Telemetry.Host, config.Cfg.Telemetry.Port); err != nil && err != http.ErrServerClosed {
+					logging.Logger.Error("Telemetry API server error", "error", err)
+				}
+			}()
 		}
 
 		// Init proxy

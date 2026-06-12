@@ -13,6 +13,7 @@ type Config struct {
 	Budget     BudgetConfig              `mapstructure:"budget"`
 	Compressor CompressorConfig          `mapstructure:"compressor"`
 	Cache      CacheConfig               `mapstructure:"cache"`
+	Telemetry  TelemetryConfig           `mapstructure:"telemetry"`
 }
 
 type ServerConfig struct {
@@ -45,6 +46,12 @@ type CacheConfig struct {
 	Enabled    bool `mapstructure:"enabled"`
 	MaxEntries int  `mapstructure:"max_entries"`
 	TTLSeconds int  `mapstructure:"ttl_seconds"`
+}
+
+type TelemetryConfig struct {
+	Enabled bool   `mapstructure:"enabled"`
+	Port    int    `mapstructure:"port"`
+	Host    string `mapstructure:"host"`
 }
 
 var Cfg Config
@@ -102,6 +109,13 @@ func validateConfig() error {
 	}
 	if Cfg.Cache.TTLSeconds == 0 {
 		Cfg.Cache.TTLSeconds = 300
+	}
+
+	if Cfg.Telemetry.Port == 0 {
+		Cfg.Telemetry.Port = 7478
+	}
+	if Cfg.Telemetry.Host == "" {
+		Cfg.Telemetry.Host = "127.0.0.1"
 	}
 
 	return nil
