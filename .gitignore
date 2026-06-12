@@ -1,0 +1,23 @@
+# Binaries
+tkngate.exe
+tkngate
+
+# Config with secrets
+tkngate.yaml
+
+# SQLite database
+*.db
+
+# Go build artifacts
+/vendor/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+

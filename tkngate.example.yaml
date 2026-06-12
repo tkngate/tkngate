@@ -1,0 +1,19 @@
+server:
+  port: 7477
+  host: "127.0.0.1"
+
+providers:
+  openai:
+    api_key: "sk-..."
+    base_url: "https://api.openai.com/v1"
+    default_model: "gpt-4o"
+  anthropic:
+    api_key: "sk-ant-..."
+    base_url: "https://api.anthropic.com/v1"
+    default_model: "claude-sonnet-4-20250514"
+
+budget:
+  global_limit_usd: 50.00
+  amber_threshold_pct: 70   # Switch to amber at 70% spend
+  red_threshold_pct: 95     # Hard block at 95% spend
+  reset_interval: "monthly"
