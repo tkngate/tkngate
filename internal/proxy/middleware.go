@@ -115,18 +115,60 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		}
 	}
 
-	// 3. EXECUTE REQUEST
-	if pool.GlobalDRR != nil {
-		dynamicKey, err := pool.GlobalDRR.GetNextKey(provider, 0.0)
-		if err == nil && dynamicKey != "" {
-			req.Header.Set("Authorization", "Bearer "+dynamicKey)
-			logging.Logger.Info("DRR Engine rotated key", "provider", provider)
+	// 3. EXECUTE REQUEST WITH AUTO-RETRY (v0.7.0)
+	maxRetries := 3
+	var res *http.Response
+	var roundTripErr error
+
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		// Reconstruct body safely for each attempt
+		if len(inputBody) > 0 {
+			req.Body = io.NopCloser(bytes.NewBuffer(inputBody))
+			req.ContentLength = int64(len(inputBody))
 		}
+
+		if pool.GlobalDRR != nil {
+			dynamicKey, err := pool.GlobalDRR.GetNextKey(provider, 0.0)
+			if err == nil && dynamicKey != "" {
+				if provider == "anthropic" {
+					req.Header.Set("x-api-key", dynamicKey)
+				} else {
+					req.Header.Set("Authorization", "Bearer "+dynamicKey)
+				}
+				if attempt > 0 {
+					logging.Logger.Info("DRR Engine attached new key for retry", "provider", provider, "attempt", attempt+1)
+				} else {
+					logging.Logger.Info("DRR Engine rotated key", "provider", provider)
+				}
+			}
+		}
+
+		res, roundTripErr = t.Transport.RoundTrip(req)
+		if roundTripErr != nil {
+			break // Break on hard network errors
+		}
+
+		// Intercept 429 Rate Limits
+		if res.StatusCode == http.StatusTooManyRequests {
+			if attempt < maxRetries {
+				logging.Logger.Warn("Intercepted 429 Rate Limit. Auto-Retrying with new key...", "provider", provider, "attempt", attempt+1)
+				// Drain and close the failing response to free the connection
+				if res.Body != nil {
+					io.Copy(io.Discard, res.Body)
+					res.Body.Close()
+				}
+				continue
+			} else {
+				logging.Logger.Error("Max retries exhausted for 429 Rate Limit", "provider", provider)
+			}
+		}
+
+		// Success or other terminal error code
+		break
 	}
 
-	res, err := t.Transport.RoundTrip(req)
-	if err != nil {
-		return res, err
+	if roundTripErr != nil {
+		return res, roundTripErr
 	}
 
 	// 4. CAPTURE OUTPUT (For token counting)

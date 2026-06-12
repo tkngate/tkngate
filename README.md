@@ -1,6 +1,6 @@
-# tkngate (Token Gateway)
+# tkngate (The Cloudflare for AI Agents)
 
-`tkngate` is an advanced, open-source Layer-7 reverse proxy designed to protect, compress, and distribute API traffic for autonomous LLM agents (OpenAI, Anthropic). It is written in Go and backed by a local SQLite ledger.
+`tkngate` is an advanced, open-source Layer-7 reverse proxy designed to protect, compress, and distribute API traffic for autonomous LLM agents (OpenAI, Anthropic). Built for the enterprise, it acts as a global safety net for your AI workforce.
 
 ## Core Features
 
@@ -36,6 +36,12 @@ Monitor your proxy fleet safely.
 The Context Compressor engine now supports Python and JavaScript/TypeScript without requiring any CGO/C++ compiler toolchains.
 - **Pure-Go Custom Lexers**: Instead of relying on heavy AST parsers, `tkngate` uses ultra-fast heuristic scanners.
 - **Bracket & Indentation Tracking**: Safely counts JS braces and tracks Python indentation to structurally slice massive function bodies down to empty shells, preserving the signature for the LLM while dropping thousands of implementation tokens.
+
+###  Seamless Auto-Retry Engine (v0.7.0)
+Achieve "Cloudflare-level" reliability for autonomous agents.
+- **429 Interception**: If an outbound request to OpenAI hits a `429 Too Many Requests` error, `tkngate` intercepts the failure before it crashes your agent.
+- **Live Key Rotation**: It instantly pulls a fresh, donated API key from the DRR mesh pool and automatically retries the request on the fly.
+- **Zero-Downtime**: The agent never knows a failure occurred, experiencing only a minor latency bump while the request successfully completes.
 
 ## Usage
 

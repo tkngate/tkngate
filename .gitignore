@@ -2,6 +2,9 @@
 tkngate.exe
 tkngate
 
+tkngate.exe*
+tkngate*
+
 # Config with secrets
 tkngate.yaml
 
