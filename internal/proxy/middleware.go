@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
 	"strings"
 	"time"
@@ -145,7 +146,11 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		}
 
 		if pool.GlobalDRR != nil {
-			dynamicKey, err := pool.GlobalDRR.GetNextKey(provider, 0.0)
+			estimatedTokens := 1000
+			if len(inputBody) > 0 {
+				estimatedTokens = t.Counter.Count(string(inputBody), reqModel)
+			}
+			dynamicKey, err := pool.GlobalDRR.GetNextKey(provider, sessionID, estimatedTokens)
 			if err == nil && dynamicKey != "" {
 				if provider == "anthropic" {
 					req.Header.Set("x-api-key", dynamicKey)
@@ -234,7 +239,8 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	// 4. CAPTURE OUTPUT (For token counting)
 	var outputBody []byte
 	if res.Body != nil {
-		outputBody, _ = io.ReadAll(res.Body)
+		// Limit response body to 10MB to prevent DoS via unbounded memory allocation
+		outputBody, _ = io.ReadAll(io.LimitReader(res.Body, 10*1024*1024))
 		res.Body = io.NopCloser(bytes.NewBuffer(outputBody))
 	}
 
@@ -281,18 +287,76 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 			"zone", status.Zone)
 	}()
 
+	// 6. SHADOW MODE (v1.1.0) — Fire-and-forget mirror to a shadow provider
+	if config.Cfg.Shadow.Enabled && len(inputBody) > 0 && strings.HasSuffix(req.URL.Path, "/chat/completions") {
+		if rand.Float64() < config.Cfg.Shadow.TrafficFraction {
+			go fireShadowRequest(inputBody, config.Cfg.Shadow.TargetProvider, config.Cfg.Shadow.TargetModel)
+		}
+	}
+
 	return res, nil
 }
 
+func fireShadowRequest(body []byte, provider string, model string) {
+	defer func() {
+		if r := recover(); r != nil {
+			logging.Logger.Error("Shadow mode panic recovered", "error", r)
+		}
+	}()
+
+	providerCfg, ok := config.Cfg.Providers[provider]
+	if !ok {
+		logging.Logger.Warn("Shadow mode: target provider not configured", "provider", provider)
+		return
+	}
+
+	shadowBody := replaceModel(body, model)
+
+	baseURL := strings.TrimSuffix(providerCfg.BaseURL, "/")
+	shadowURL := baseURL + "/chat/completions"
+
+	shadowReq, err := http.NewRequest("POST", shadowURL, bytes.NewBuffer(shadowBody))
+	if err != nil {
+		logging.Logger.Error("Shadow mode: failed to create request", "error", err)
+		return
+	}
+
+	shadowReq.Header.Set("Content-Type", "application/json")
+	if provider == "anthropic" {
+		shadowReq.Header.Set("x-api-key", providerCfg.APIKey)
+		shadowReq.Header.Set("anthropic-version", "2023-06-01")
+	} else {
+		shadowReq.Header.Set("Authorization", "Bearer "+providerCfg.APIKey)
+	}
+
+	start := time.Now()
+	client := &http.Client{Timeout: 30 * time.Second}
+	shadowRes, err := client.Do(shadowReq)
+	latency := time.Since(start)
+
+	if err != nil {
+		logging.Logger.Warn("Shadow mode: request failed", "provider", provider, "error", err)
+		return
+	}
+	defer shadowRes.Body.Close()
+
+	logging.Logger.Info("Shadow mode: mirror complete",
+		"provider", provider,
+		"model", model,
+		"status", shadowRes.StatusCode,
+		"latency_ms", latency.Milliseconds())
+}
+
 func blockRequest(message string) (*http.Response, error) {
-	body := fmt.Sprintf(`{"error": "%s"}`, message)
+	resp := map[string]string{"error": message}
+	body, _ := json.Marshal(resp)
 	return &http.Response{
 		Status:        "429 Too Many Requests",
 		StatusCode:    429,
 		Proto:         "HTTP/1.1",
 		ProtoMajor:    1,
 		ProtoMinor:    1,
-		Body:          io.NopCloser(bytes.NewBufferString(body)),
+		Body:          io.NopCloser(bytes.NewBuffer(body)),
 		ContentLength: int64(len(body)),
 		Header:        make(http.Header),
 	}, nil

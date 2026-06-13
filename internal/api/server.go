@@ -18,6 +18,7 @@ func StartTelemetryServer(host string, port int) error {
 	mux.HandleFunc("/api/v1/overview", withCORS(handleOverview))
 	mux.HandleFunc("/api/v1/sessions", withCORS(handleSessions))
 	mux.HandleFunc("/api/v1/pool", withCORS(handlePool))
+	mux.HandleFunc("/api/v1/mesh/stats", withCORS(handleMeshStats))
 
 	addr := fmt.Sprintf("%s:%d", host, port)
 	logging.Logger.Info("Telemetry API starting", "address", addr)
@@ -119,5 +120,45 @@ func handlePool(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"nodes":      allNodes,
 		"total_keys": len(allNodes),
+	})
+}
+
+func handleMeshStats(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	providers := []string{"openai", "anthropic", "deepseek", "kimi", "groq"}
+	var allNodes []budget.PoolNode
+	
+	for _, p := range providers {
+		nodes, _ := budget.GlobalLedger.GetPoolNodes(p)
+		allNodes = append(allNodes, nodes...)
+	}
+
+	var totalCapacity int
+	activeNodes := 0
+
+	for _, node := range allNodes {
+		if node.RemainingTokensQuota > 0 {
+			totalCapacity += node.RemainingTokensQuota
+			activeNodes++
+		}
+	}
+
+	health := "HEALTHY"
+	if activeNodes == 0 {
+		health = "CRITICAL - NO CAPACITY"
+	} else if totalCapacity < 50000 {
+		health = "DEGRADED"
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"total_donated_capacity": totalCapacity,
+		"active_nodes":           activeNodes,
+		"network_health":         health,
+		"timestamp":              time.Now(),
 	})
 }

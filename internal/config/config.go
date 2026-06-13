@@ -14,6 +14,7 @@ type Config struct {
 	Compressor CompressorConfig          `mapstructure:"compressor"`
 	Cache      CacheConfig               `mapstructure:"cache"`
 	Telemetry  TelemetryConfig           `mapstructure:"telemetry"`
+	Shadow     ShadowConfig              `mapstructure:"shadow"`
 }
 
 type ServerConfig struct {
@@ -53,6 +54,13 @@ type TelemetryConfig struct {
 	Enabled bool   `mapstructure:"enabled"`
 	Port    int    `mapstructure:"port"`
 	Host    string `mapstructure:"host"`
+}
+
+type ShadowConfig struct {
+	Enabled         bool    `mapstructure:"enabled"`
+	TargetProvider  string  `mapstructure:"target_provider"`
+	TargetModel     string  `mapstructure:"target_model"`
+	TrafficFraction float64 `mapstructure:"traffic_fraction"`
 }
 
 var Cfg Config

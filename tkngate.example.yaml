@@ -4,13 +4,13 @@ server:
 
 providers:
   openai:
-    api_key: "sk-..."
+    api_key: "sk-proj-xxx"
     base_url: "https://api.openai.com/v1"
-    default_model: "gpt-4o"
+    default_model: "gpt-6o"
   anthropic:
-    api_key: "sk-ant-..."
+    api_key: "sk-ant-xxx"
     base_url: "https://api.anthropic.com/v1"
-    default_model: "claude-sonnet-4-20250514"
+    default_model: "claude-4.8-opus"
 
 budget:
   global_limit_usd: 50.00
@@ -36,4 +36,8 @@ telemetry:
   host: "127.0.0.1"
   port: 7478
 
-
+shadow:
+  enabled: false
+  target_provider: "deepseek"
+  target_model: "deepseek-chat-v3"
+  traffic_fraction: 0.1

@@ -68,24 +68,26 @@ func EstimateCost(provider string, model string, inputTokens, outputTokens int) 
 
 	switch provider {
 	case "openai":
-		if strings.Contains(model, "gpt-4o-mini") {
-			inputPrice = 0.00015
-			outputPrice = 0.0006
-		} else if strings.Contains(model, "gpt-4o") {
+		if strings.Contains(model, "gpt-6o") {
 			inputPrice = 0.005
 			outputPrice = 0.015
-		} else { // default to 3.5 turbo or similar
+		} else if strings.Contains(model, "gpt-5.5-turbo") {
 			inputPrice = 0.0005
 			outputPrice = 0.0015
+		} else {
+			inputPrice = 0.005
+			outputPrice = 0.015
 		}
 	case "anthropic":
 		if strings.Contains(model, "haiku") {
 			inputPrice = 0.00025
 			outputPrice = 0.00125
 		} else if strings.Contains(model, "sonnet") {
+			// claude-4.5-sonnet
 			inputPrice = 0.003
 			outputPrice = 0.015
 		} else if strings.Contains(model, "opus") {
+			// claude-4.8-opus
 			inputPrice = 0.015
 			outputPrice = 0.075
 		} else {
@@ -93,6 +95,7 @@ func EstimateCost(provider string, model string, inputTokens, outputTokens int) 
 			outputPrice = 0.015
 		}
 	case "deepseek":
+		// deepseek-chat-v3
 		inputPrice = 0.00014
 		outputPrice = 0.00028
 	case "kimi":

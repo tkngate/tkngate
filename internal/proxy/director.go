@@ -69,7 +69,8 @@ func captureBody(r *http.Request) ([]byte, error) {
 	if r.Body == nil {
 		return nil, nil
 	}
-	bodyBytes, err := io.ReadAll(r.Body)
+	// Limit request body to 10MB to prevent DoS via unbounded memory allocation
+	bodyBytes, err := io.ReadAll(io.LimitReader(r.Body, 10*1024*1024))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read request body: %w", err)
 	}

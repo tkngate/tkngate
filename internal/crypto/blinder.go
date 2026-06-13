@@ -8,42 +8,23 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 )
 
 var masterKey []byte
 
-// InitCrypto loads or generates the master key
-func InitCrypto() error {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return err
-	}
-	keyPath := filepath.Join(homeDir, ".tkngate", "master.key")
 
-	if _, err := os.Stat(keyPath); os.IsNotExist(err) {
-		// Generate new 32-byte key
-		key := make([]byte, 32)
-		if _, err := io.ReadFull(rand.Reader, key); err != nil {
-			return err
-		}
-		if err := os.MkdirAll(filepath.Dir(keyPath), 0700); err != nil {
-			return err
-		}
-		if err := os.WriteFile(keyPath, key, 0600); err != nil {
-			return err
-		}
-		masterKey = key
-	} else {
-		key, err := os.ReadFile(keyPath)
-		if err != nil {
-			return err
-		}
-		if len(key) != 32 {
-			return fmt.Errorf("invalid master key length in %s", keyPath)
-		}
-		masterKey = key
+func InitCrypto() error {
+	keyStr := os.Getenv("TKNGATE_MASTER_KEY")
+	if keyStr == "" {
+		return fmt.Errorf("FATAL SECURITY ERROR: TKNGATE_MASTER_KEY environment variable is missing. It must be exactly 32 characters to enable zero-knowledge encryption for the token mesh")
 	}
+
+	key := []byte(keyStr)
+	if len(key) != 32 {
+		return fmt.Errorf("FATAL SECURITY ERROR: TKNGATE_MASTER_KEY must be exactly 32 bytes (characters). Current length is %d", len(key))
+	}
+
+	masterKey = key
 	return nil
 }
 
