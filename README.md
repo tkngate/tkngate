@@ -1,5 +1,5 @@
 <p align="center">
-  <h1 align="center">⚡ Tkngate</h1>
+  <h1 align="center"> Tkngate</h1>
   <p align="center"><strong>The Cloudflare for Autonomous AI Agents</strong></p>
   <p align="center">
     Zero-knowledge reverse proxy · Multi-provider failover · P2P token mesh
@@ -36,16 +36,16 @@ Your agents now point to `http://localhost:7477/openai/chat/completions` instead
 
 ## Features
 
-### 🔄 Universal API Router
+### Universal API Router
 Route through **OpenAI, Anthropic, DeepSeek, Kimi, and Groq** from a single endpoint. If one provider goes down (HTTP 500/502/503), Tkngate automatically fails over to the next.
 
-### 🛡️ AI-WAF & DLP
+### AI-WAF & DLP
 Block prompt injection attacks and automatically redact PII (credit cards, SSNs, API keys) before they reach the provider.
 
-### 💰 Budget Traffic Lights
+### Budget Traffic Lights
 Real-time spend tracking with Green → Amber → Red zones. Set global limits, per-session caps, and automatic request blocking when budgets are exhausted.
 
-### 🧠 Semantic Cache
+###  Semantic Cache
 Identical prompts are served from an in-memory cache, saving tokens and money. Cache keys are computed from normalised `model + messages` hashes.
 
 ### 🗜️ Context Compressor
@@ -94,4 +94,4 @@ Agent Request
 
 ## License
 
-MIT
+Apache 2.0
