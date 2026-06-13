@@ -28,11 +28,27 @@ func isGoCode(content string) bool {
 }
 
 func isPythonCode(content string) bool {
-	return strings.Contains(content, "def ") || strings.Contains(content, "class ")
+	lines := strings.Split(content, "\n")
+	defCount := 0
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "def ") || strings.HasPrefix(trimmed, "class ") {
+			defCount++
+		}
+	}
+	return defCount >= 2
 }
 
 func isJSCode(content string) bool {
-	return strings.Contains(content, "function ") || strings.Contains(content, "=>")
+	lines := strings.Split(content, "\n")
+	fnCount := 0
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "function ") || strings.Contains(trimmed, "=> {") || strings.HasPrefix(trimmed, "const ") || strings.HasPrefix(trimmed, "export ") {
+			fnCount++
+		}
+	}
+	return fnCount >= 2
 }
 
 func compressGo(content string) string {

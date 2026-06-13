@@ -92,6 +92,15 @@ func EstimateCost(provider string, model string, inputTokens, outputTokens int) 
 			inputPrice = 0.003
 			outputPrice = 0.015
 		}
+	case "deepseek":
+		inputPrice = 0.00014
+		outputPrice = 0.00028
+	case "kimi":
+		inputPrice = 0.0012
+		outputPrice = 0.0012
+	case "groq":
+		inputPrice = 0.00005
+		outputPrice = 0.00008
 	default:
 		inputPrice = 0.001
 		outputPrice = 0.002

@@ -41,13 +41,21 @@ func (d *DRREngine) GetNextKey(provider string, estimatedCost float64) (string, 
 		idx = 0
 	}
 
-	// Try to find a valid key
+	// Try to find a valid key with remaining quota
 	for i := 0; i < len(nodes); i++ {
 		node := nodes[idx]
 		d.currentIndex[provider] = (idx + 1) % len(nodes)
 
+		// Skip exhausted keys
+		if node.RemainingTokensQuota <= 0 {
+			idx = d.currentIndex[provider]
+			continue
+		}
+
 		plaintextKey, err := crypto.Decrypt(node.BlindedKeyHash)
 		if err == nil {
+			// Decrement quota
+			budget.GlobalLedger.DecrementPoolQuota(node.NodeID, 1000)
 			return plaintextKey, nil
 		}
 		idx = d.currentIndex[provider]
