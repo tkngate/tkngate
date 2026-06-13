@@ -11,7 +11,6 @@ var (
 	KnownPromptInjections = [][]byte{
 		[]byte("ignore all previous instructions"),
 		[]byte("ignore previous instructions"),
-		[]byte("system prompt"),
 		[]byte("you are now DAN"),
 		[]byte("hypothetical scenario"),
 		[]byte("disregard all previous"),
@@ -36,7 +35,7 @@ func DetectJailbreak(payload []byte) error {
 	lowerPayload := bytes.ToLower(payload)
 	for _, signature := range KnownPromptInjections {
 		if bytes.Contains(lowerPayload, signature) {
-			return fmt.Errorf("prompt injection detected: signature match '%s'", string(signature))
+			return fmt.Errorf("request blocked by AI-WAF policy")
 		}
 	}
 	return nil

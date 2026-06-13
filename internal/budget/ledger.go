@@ -182,3 +182,9 @@ func (l *Ledger) GetTransactionCount() (int, error) {
 	err := l.db.QueryRow(`SELECT COUNT(*) FROM transactions`).Scan(&count)
 	return count, err
 }
+
+func (l *Ledger) DecrementPoolQuota(nodeID string, tokens int) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.db.Exec(`UPDATE token_pool_nodes SET remaining_tokens_quota = remaining_tokens_quota - ? WHERE node_id = ? AND remaining_tokens_quota > 0`, tokens, nodeID)
+}
