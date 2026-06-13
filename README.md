@@ -48,13 +48,13 @@ Real-time spend tracking with Green → Amber → Red zones. Set global limits, 
 ###  Semantic Cache
 Identical prompts are served from an in-memory cache, saving tokens and money. Cache keys are computed from normalised `model + messages` hashes.
 
-### 🗜️ Context Compressor
+###  Context Compressor
 Automatically compresses Go, Python, and JavaScript code blocks in prompts — stripping comments and whitespace to reduce token usage by up to 40%.
 
-### 🌐 P2P Token Mesh (DRR)
+###  P2P Token Mesh (DRR)
 The world's first BitTorrent-style token pool for LLM APIs. Donate spare API keys to the mesh, and get priority access to the network's capacity during outages. Protected by AES-256 zero-knowledge encryption.
 
-### 👻 Shadow Mode
+###  Shadow Mode
 Silently mirror a fraction of production traffic to an alternative provider (e.g., DeepSeek) to evaluate cost savings — with zero latency impact on the primary request.
 
 ## Configuration
