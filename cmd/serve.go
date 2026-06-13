@@ -71,7 +71,7 @@ var serveCmd = &cobra.Command{
 		
 		// Print sexy banner
 		color.Green(tkngateBanner)
-		color.White("🚀 Starting tkngate daemon (v1.1.1) on %s\n", color.GreenString("http://%s", addr))
+		color.White("🚀 Starting tkngate daemon (v1.2.0) on %s\n", color.GreenString("http://%s", addr))
 		color.White("🔌 Telemetry API active on %s\n", color.CyanString("http://%s:%d", config.Cfg.Telemetry.Host, config.Cfg.Telemetry.Port))
 		fmt.Println(color.HiBlackString("─────────────────────────────────────────────────────────────────────────"))
 		
