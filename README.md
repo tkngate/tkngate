@@ -48,6 +48,12 @@ Enterprise-grade security and Data Loss Prevention (DLP) for LLM traffic.
 - **Prompt Injection Firewall**: Scans outbound JSON payloads for known jailbreak vectors (e.g., "ignore all previous instructions"). Blocks malicious payloads with an `HTTP 403 Forbidden` before they reach OpenAI.
 - **Auto-Redaction (PII)**: Uses lightning-fast heuristic regex to automatically detect and redact Credit Card numbers, SSNs, and leaked API keys (`sk-...`) from prompts, replacing them with `[REDACTED]`.
 
+###  Universal API Router (v0.9.0)
+Achieve 100% agent uptime with multi-model fallback routing across OpenAI-compatible providers.
+- **Severe Outage Interception**: If OpenAI has a global outage (HTTP 500, 502, 503), the proxy intercepts the failure.
+- **Auto-Translation**: It dynamically rewrites the destination URL, swaps `gpt-4o` for `deepseek-chat` or `moonshot-v1-8k` inside the JSON payload, grabs a new API key from the DRR mesh, and seamlessly fulfills the request.
+- **Native Support**: Full local DRR support and active key validation for `openai`, `anthropic`, `deepseek`, `kimi`, and `groq`.
+
 ## Usage
 
 1. Copy `tkngate.example.yaml` to `tkngate.yaml` and configure your API keys and budgets.

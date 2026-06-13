@@ -180,6 +180,48 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 			}
 		}
 
+		// v0.9.0: Universal API Router (Multi-AI Fallback)
+		// Intercept severe upstream outages (500, 502, 503) and fallback to another provider seamlessly.
+		if res.StatusCode >= 500 && attempt < maxRetries {
+			fallbackProvider := config.Cfg.Budget.FallbackProvider
+			if fallbackProvider == "" {
+				fallbackProvider = "deepseek" // Default fallback to deepseek if not configured
+			}
+			
+			if provider != fallbackProvider {
+				logging.Logger.Warn("Intercepted severe upstream outage. Engaging Universal API Router Fallback...", "from", provider, "to", fallbackProvider, "status", res.StatusCode)
+				
+				// 1. Swap Provider for the next loop iteration (so DRR grabs the new provider's key)
+				provider = fallbackProvider
+				
+				// 2. Rewrite HTTP Destination and JSON payload model (Assuming standard OpenAI-compatible endpoints)
+				switch provider {
+				case "deepseek":
+					req.URL.Host = "api.deepseek.com"
+					req.Host = "api.deepseek.com"
+					req.URL.Path = "/v1/chat/completions"
+					inputBody = replaceModel(inputBody, "deepseek-chat")
+				case "kimi":
+					req.URL.Host = "api.moonshot.cn"
+					req.Host = "api.moonshot.cn"
+					req.URL.Path = "/v1/chat/completions"
+					inputBody = replaceModel(inputBody, "moonshot-v1-8k")
+				case "groq":
+					req.URL.Host = "api.groq.com"
+					req.Host = "api.groq.com"
+					req.URL.Path = "/openai/v1/chat/completions"
+					inputBody = replaceModel(inputBody, "llama3-8b-8192")
+				}
+				
+				// Drain failing response
+				if res.Body != nil {
+					io.Copy(io.Discard, res.Body)
+					res.Body.Close()
+				}
+				continue
+			}
+		}
+
 		// Success or other terminal error code
 		break
 	}
