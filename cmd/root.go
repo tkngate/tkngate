@@ -20,7 +20,7 @@ var tkngateBanner = `
 
 var rootCmd = &cobra.Command{
 	Use:     "tkngate",
-	Version: "v1.1.0",
+	Version: "v1.1.1",
 	Short:   "tkngate is an enterprise token-management reverse proxy",
 	Long: color.GreenString(tkngateBanner) + `
 tkngate is an open-source, zero-knowledge reverse proxy daemon for LLM APIs.
