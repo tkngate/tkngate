@@ -145,7 +145,11 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		}
 
 		if pool.GlobalDRR != nil {
-			dynamicKey, err := pool.GlobalDRR.GetNextKey(provider, 0.0)
+			estimatedTokens := 1000
+			if len(inputBody) > 0 {
+				estimatedTokens = t.Counter.Count(string(inputBody), reqModel)
+			}
+			dynamicKey, err := pool.GlobalDRR.GetNextKey(provider, sessionID, estimatedTokens)
 			if err == nil && dynamicKey != "" {
 				if provider == "anthropic" {
 					req.Header.Set("x-api-key", dynamicKey)
