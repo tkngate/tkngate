@@ -182,7 +182,8 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 		// v0.9.0: Universal API Router (Multi-AI Fallback)
 		// Intercept severe upstream outages (500, 502, 503) and fallback to another provider seamlessly.
-		if res.StatusCode >= 500 && attempt < maxRetries {
+		// ONLY do this if the request is for chat completions, as we cannot safely translate embeddings/audio yet.
+		if res.StatusCode >= 500 && attempt < maxRetries && strings.HasSuffix(req.URL.Path, "/chat/completions") {
 			fallbackProvider := config.Cfg.Budget.FallbackProvider
 			if fallbackProvider == "" {
 				fallbackProvider = "deepseek" // Default fallback to deepseek if not configured
