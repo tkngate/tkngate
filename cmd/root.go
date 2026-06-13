@@ -4,13 +4,27 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 )
 
+var tkngateBanner = `
+   ______   __   __    _  __    ______   ___   ______   ______ 
+  /_  __/  / /  / /   / |/ /   / ____/  /   | /_  __/  / ____/ 
+   / /    / /__/ /   /    /   / / __   / /| |  / /    / __/    
+  / /    / /  / /   / /|  /  / /_/ /  / ___ | / /    / /___    
+ /_/    /_/  /_/   /_/ |_/   \____/  /_/  |_|/_/    /_____/    
+                                                               
+        The Cloudflare for Autonomous AI Agents
+`
+
 var rootCmd = &cobra.Command{
-	Use:   "tkngate",
-	Short: "tkngate is a token-management reverse proxy",
-	Long:  `tkngate is an open-source token-management reverse proxy daemon written in Go.`,
+	Use:     "tkngate",
+	Version: "v1.1.1",
+	Short:   "tkngate is an enterprise token-management reverse proxy",
+	Long: color.GreenString(tkngateBanner) + `
+tkngate is an open-source, zero-knowledge reverse proxy daemon for LLM APIs.
+It provides P2P token pooling, real-time budget enforcement, and semantic caching.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cmd.Help()
 	},
