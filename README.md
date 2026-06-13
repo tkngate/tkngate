@@ -43,6 +43,11 @@ Achieve "Cloudflare-level" reliability for autonomous agents.
 - **Live Key Rotation**: It instantly pulls a fresh, donated API key from the DRR mesh pool and automatically retries the request on the fly.
 - **Zero-Downtime**: The agent never knows a failure occurred, experiencing only a minor latency bump while the request successfully completes.
 
+###  AI-WAF & DLP Engine (v0.8.0)
+Enterprise-grade security and Data Loss Prevention (DLP) for LLM traffic.
+- **Prompt Injection Firewall**: Scans outbound JSON payloads for known jailbreak vectors (e.g., "ignore all previous instructions"). Blocks malicious payloads with an `HTTP 403 Forbidden` before they reach OpenAI.
+- **Auto-Redaction (PII)**: Uses lightning-fast heuristic regex to automatically detect and redact Credit Card numbers, SSNs, and leaked API keys (`sk-...`) from prompts, replacing them with `[REDACTED]`.
+
 ## Usage
 
 1. Copy `tkngate.example.yaml` to `tkngate.yaml` and configure your API keys and budgets.

@@ -16,6 +16,7 @@ import (
 	"tkngate/internal/logging"
 	"tkngate/internal/pool"
 	"tkngate/internal/tokenizer"
+	"tkngate/internal/waf"
 )
 
 // RoundTripper middleware that captures request/response to enforce budget and count tokens
@@ -62,6 +63,22 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	var reqModel string
 	if req.Body != nil {
 		inputBody, _ = captureBody(req)
+
+		// 2.1. AI-WAF: Prompt Injection Firewall
+		if err := waf.DetectJailbreak(inputBody); err != nil {
+			logging.Logger.Error("WAF Blocked Request", "reason", err, "session", sessionID)
+			return blockRequest(fmt.Sprintf("WAF Blocked Request: %v", err))
+		}
+
+		// 2.2. AI-WAF: Data Loss Prevention (PII Redaction)
+		sanitizedBody := waf.RedactPII(inputBody)
+		if len(sanitizedBody) != len(inputBody) || !bytes.Equal(sanitizedBody, inputBody) {
+			logging.Logger.Info("WAF DLP Engine redacted sensitive PII from payload", "session", sessionID)
+			inputBody = sanitizedBody
+			req.Body = io.NopCloser(bytes.NewBuffer(inputBody))
+			req.ContentLength = int64(len(inputBody))
+		}
+
 		reqModel = extractModel(inputBody)
 		
 		// Model Downgrade in Amber Zone
