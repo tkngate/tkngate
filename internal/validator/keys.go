@@ -14,25 +14,7 @@ func ValidateKey(provider, key string) error {
 
 	switch provider {
 	case "openai":
-		req, err := http.NewRequest("GET", "https://api.openai.com/v1/models", nil)
-		if err != nil {
-			return err
-		}
-		req.Header.Set("Authorization", "Bearer "+key)
-
-		resp, err := client.Do(req)
-		if err != nil {
-			return fmt.Errorf("network error connecting to OpenAI: %v", err)
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode == 401 {
-			return fmt.Errorf("invalid or revoked OpenAI API key")
-		}
-		if resp.StatusCode != 200 {
-			return fmt.Errorf("unexpected status code from OpenAI: %d", resp.StatusCode)
-		}
-		return nil
+		return validateOpenAICompatible(client, key, "https://api.openai.com/v1/models", "OpenAI")
 
 	case "anthropic":
 		// Anthropic does not have a widely used /models GET endpoint, 
@@ -60,7 +42,35 @@ func ValidateKey(provider, key string) error {
 		}
 		return nil
 
+	case "deepseek":
+		return validateOpenAICompatible(client, key, "https://api.deepseek.com/v1/models", "DeepSeek")
+	case "kimi":
+		return validateOpenAICompatible(client, key, "https://api.moonshot.cn/v1/models", "Kimi")
+	case "groq":
+		return validateOpenAICompatible(client, key, "https://api.groq.com/openai/v1/models", "Groq")
 	default:
-		return fmt.Errorf("unsupported provider '%s' for validation. Supported providers: openai, anthropic", provider)
+		return fmt.Errorf("unsupported provider '%s' for validation. Supported providers: openai, anthropic, deepseek, kimi, groq", provider)
 	}
+}
+
+func validateOpenAICompatible(client *http.Client, key, endpoint, name string) error {
+	req, err := http.NewRequest("GET", endpoint, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+key)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("network error connecting to %s: %v", name, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 401 {
+		return fmt.Errorf("invalid or revoked %s API key", name)
+	}
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("unexpected status code from %s: %d", name, resp.StatusCode)
+	}
+	return nil
 }

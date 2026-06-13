@@ -31,6 +31,7 @@ type BudgetConfig struct {
 	GlobalLimitUSD    float64 `mapstructure:"global_limit_usd"`
 	MaxSessionCostUSD float64 `mapstructure:"max_session_cost_usd"`
 	FallbackModel     string  `mapstructure:"fallback_model"`
+	FallbackProvider  string  `mapstructure:"fallback_provider"`
 	AmberThresholdPct int     `mapstructure:"amber_threshold_pct"`
 	RedThresholdPct   int     `mapstructure:"red_threshold_pct"`
 	ResetInterval     string  `mapstructure:"reset_interval"`
