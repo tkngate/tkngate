@@ -19,6 +19,7 @@ func StartTelemetryServer(host string, port int) error {
 	mux.HandleFunc("/api/v1/sessions", withCORS(handleSessions))
 	mux.HandleFunc("/api/v1/pool", withCORS(handlePool))
 	mux.HandleFunc("/api/v1/mesh/stats", withCORS(handleMeshStats))
+	mux.HandleFunc("/api/v1/vkeys", withCORS(handleVirtualKeys))
 
 	addr := fmt.Sprintf("%s:%d", host, port)
 	logging.Logger.Info("Telemetry API starting", "address", addr)
@@ -160,5 +161,23 @@ func handleMeshStats(w http.ResponseWriter, r *http.Request) {
 		"active_nodes":           activeNodes,
 		"network_health":         health,
 		"timestamp":              time.Now(),
+	})
+}
+
+func handleVirtualKeys(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	keys, err := budget.GlobalLedger.GetVirtualKeys()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"virtual_keys": keys,
 	})
 }

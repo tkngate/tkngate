@@ -15,6 +15,7 @@ const (
 type Transaction struct {
 	ID               int64     `json:"id"`
 	SessionID        string    `json:"session_id,omitempty"`
+	VirtualKeyHash   string    `json:"virtual_key_hash,omitempty"`
 	Provider         string    `json:"provider"`
 	Model            string    `json:"model"`
 	InputTokens      int       `json:"input_tokens"`

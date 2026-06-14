@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"tkngate/internal/auth"
 	"tkngate/internal/budget"
 	"tkngate/internal/cache"
 	"tkngate/internal/compressor"
@@ -44,17 +45,56 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		return blockRequest("Global Token Budget Exhausted")
 	}
 
-	sessionID := req.Header.Get("X-Tkngate-Session-ID")
+	// v1.3.0: VIRTUAL KEY AUTHENTICATION
+	// Clients must provide `Authorization: Bearer tkngate-sk-...`
+	authHeader := req.Header.Get("Authorization")
+	var authenticatedKeyHash string
+	var sessionID string
 	sessionZone := budget.ZoneGreen
-	if sessionID != "" {
-		sStatus, err := budget.CheckSessionBudget(sessionID)
+	
+	if strings.HasPrefix(authHeader, "Bearer tkngate-sk-") {
+		virtualKey := strings.TrimPrefix(authHeader, "Bearer ")
+		
+		keys, err := budget.GlobalLedger.GetVirtualKeys()
+		if err == nil {
+			for _, k := range keys {
+				if auth.VerifyKey(virtualKey, k.KeyHash) {
+					authenticatedKeyHash = k.KeyHash
+					sessionID = k.Name // Map the virtual key name to the session ID for legacy tracking
+					break
+				}
+			}
+		}
+
+		if authenticatedKeyHash == "" {
+			logging.Logger.Error("Request blocked: Invalid Virtual Key provided", "provider", provider)
+			return blockRequest("401 Unauthorized: Invalid Tkngate Virtual Key")
+		}
+
+		// Check the Virtual Key budget
+		sStatus, err := budget.CheckVirtualKeyBudget(authenticatedKeyHash)
 		if err != nil {
-			logging.Logger.Error("session budget check failed", "error", err)
+			logging.Logger.Error("virtual key budget check failed", "error", err)
 		} else {
 			sessionZone = sStatus.Zone
 			if sessionZone == budget.ZoneRed {
-				logging.Logger.Error("Request blocked by session budget circuit breaker", "session", sessionID)
-				return blockRequest(fmt.Sprintf("Session Token Budget Exhausted: %s", sessionID))
+				logging.Logger.Error("Request blocked by virtual key budget circuit breaker", "key", sessionID)
+				return blockRequest(fmt.Sprintf("Virtual Key Budget Exhausted: %s", sessionID))
+			}
+		}
+	} else {
+		// Fallback to legacy Session ID behavior if Virtual Keys are not provided
+		sessionID = req.Header.Get("X-Tkngate-Session-ID")
+		if sessionID != "" {
+			sStatus, err := budget.CheckSessionBudget(sessionID)
+			if err != nil {
+				logging.Logger.Error("session budget check failed", "error", err)
+			} else {
+				sessionZone = sStatus.Zone
+				if sessionZone == budget.ZoneRed {
+					logging.Logger.Error("Request blocked by session budget circuit breaker", "session", sessionID)
+					return blockRequest(fmt.Sprintf("Session Token Budget Exhausted: %s", sessionID))
+				}
 			}
 		}
 	}
@@ -257,7 +297,7 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	// The streaming interceptor will count tokens per chunk and enforce budget limits mid-stream.
 	if isStreamingResponse(res) {
 		logging.Logger.Info("SSE streaming response detected — engaging real-time token interceptor", "provider", provider, "model", reqModel)
-		wrapStreamingResponse(res, t.Counter, reqModel, provider, sessionID)
+		wrapStreamingResponse(res, t.Counter, reqModel, provider, sessionID, authenticatedKeyHash)
 
 		// Record input tokens only (output tokens are counted by the stream interceptor)
 		go func() {
@@ -266,6 +306,7 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 				cost := tokenizer.EstimateCost(provider, reqModel, inTokens, 0)
 				tx := budget.Transaction{
 					SessionID:        sessionID,
+					VirtualKeyHash:   authenticatedKeyHash,
 					Provider:         provider,
 					Model:            reqModel,
 					InputTokens:      inTokens,
@@ -316,6 +357,7 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 			tx := budget.Transaction{
 				SessionID:        sessionID,
+				VirtualKeyHash:   authenticatedKeyHash,
 				Provider:         provider,
 				Model:            reqModel,
 				InputTokens:      inTokens,

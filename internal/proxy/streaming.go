@@ -28,24 +28,26 @@ type streamingResponseBody struct {
 	original    io.ReadCloser
 	scanner     *bufio.Scanner
 	counter     *tokenizer.Counter
-	model       string
-	provider    string
-	sessionID   string
-	tokensSoFar int
-	buffer      bytes.Buffer
-	done        bool
+	model          string
+	provider       string
+	sessionID      string
+	virtualKeyHash string
+	tokensSoFar    int
+	buffer         bytes.Buffer
+	done           bool
 }
 
-func newStreamingResponseBody(body io.ReadCloser, counter *tokenizer.Counter, model, provider, sessionID string) *streamingResponseBody {
+func newStreamingResponseBody(body io.ReadCloser, counter *tokenizer.Counter, model, provider, sessionID, virtualKeyHash string) *streamingResponseBody {
 	scanner := bufio.NewScanner(body)
 	scanner.Buffer(make([]byte, 64*1024), 1024*1024) // 1MB max line
 	return &streamingResponseBody{
-		original:  body,
-		scanner:   scanner,
-		counter:   counter,
-		model:     model,
-		provider:  provider,
-		sessionID: sessionID,
+		original:       body,
+		scanner:        scanner,
+		counter:        counter,
+		model:          model,
+		provider:       provider,
+		sessionID:      sessionID,
+		virtualKeyHash: virtualKeyHash,
 	}
 }
 
@@ -102,9 +104,19 @@ func (s *streamingResponseBody) Read(p []byte) (int, error) {
 			}
 		}
 
-		// v1.2.0: Mid-stream budget enforcement
-		// If the streaming response has generated enough tokens to breach the session budget, cut it off
-		if s.sessionID != "" {
+		// v1.2.0 & v1.3.0: Mid-stream budget enforcement
+		// If the streaming response has generated enough tokens to breach the session or virtual key budget, cut it off
+		if s.virtualKeyHash != "" {
+			vkStatus, err := budget.CheckVirtualKeyBudget(s.virtualKeyHash)
+			if err == nil && vkStatus.Zone == budget.ZoneRed {
+				logging.Logger.Warn("Budget Guard: cutting SSE stream mid-response due to Virtual Key budget exhaustion",
+					"key_hash", s.virtualKeyHash, "tokens_so_far", s.tokensSoFar)
+				s.done = true
+				s.buffer.WriteString("data: [DONE]\n\n")
+				s.recordTransaction()
+				return s.buffer.Read(p)
+			}
+		} else if s.sessionID != "" {
 			sessionStatus, err := budget.CheckSessionBudget(s.sessionID)
 			if err == nil && sessionStatus.Zone == budget.ZoneRed {
 				logging.Logger.Warn("Budget Guard: cutting SSE stream mid-response due to session budget exhaustion",
@@ -137,6 +149,7 @@ func (s *streamingResponseBody) recordTransaction() {
 
 	tx := budget.Transaction{
 		SessionID:        s.sessionID,
+		VirtualKeyHash:   s.virtualKeyHash,
 		Provider:         s.provider,
 		Model:            s.model,
 		InputTokens:      0, // Input tokens are counted before the stream starts
@@ -174,7 +187,7 @@ func isStreamingResponse(res *http.Response) bool {
 }
 
 // wrapStreamingResponse wraps the response body with our SSE interceptor
-func wrapStreamingResponse(res *http.Response, counter *tokenizer.Counter, model, provider, sessionID string) {
+func wrapStreamingResponse(res *http.Response, counter *tokenizer.Counter, model, provider, sessionID, virtualKeyHash string) {
 	if !isStreamingResponse(res) {
 		return
 	}
@@ -187,7 +200,7 @@ func wrapStreamingResponse(res *http.Response, counter *tokenizer.Counter, model
 		res.Header.Set("Cache-Control", "no-cache")
 	}
 
-	streamBody := newStreamingResponseBody(res.Body, counter, model, provider, sessionID)
+	streamBody := newStreamingResponseBody(res.Body, counter, model, provider, sessionID, virtualKeyHash)
 	res.Body = streamBody
 
 	// Disable content length since we're streaming
