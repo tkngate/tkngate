@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 	"tkngate/internal/config"
 	"tkngate/internal/logging"
 )
@@ -30,8 +31,8 @@ func CheckModeration(prompt string) (bool, error) {
 
 	apiKey := config.Cfg.Mesh.ModerationAPIKey
 	if apiKey == "" {
-		logging.Logger.Warn("Preflight moderation enabled but no moderation_api_key provided, skipping check")
-		return true, nil // Fail-open if no key configured but feature enabled (or we could fail-closed)
+		logging.Logger.Error("Preflight moderation enabled but no moderation_api_key provided. Failing closed for safety.")
+		return false, fmt.Errorf("moderation_api_key is required when preflight_moderation is enabled")
 	}
 
 	reqBody := ModerationRequest{Input: prompt}
@@ -48,7 +49,7 @@ func CheckModeration(prompt string) (bool, error) {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 
-	client := &http.Client{}
+	client := &http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
 		return false, fmt.Errorf("moderation API request failed: %w", err)
