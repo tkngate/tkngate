@@ -15,6 +15,7 @@ type Config struct {
 	Cache      CacheConfig               `mapstructure:"cache"`
 	Telemetry  TelemetryConfig           `mapstructure:"telemetry"`
 	Shadow     ShadowConfig              `mapstructure:"shadow"`
+	RateLimit  RateLimitConfig           `mapstructure:"rate_limit"`
 }
 
 type ServerConfig struct {
@@ -62,6 +63,12 @@ type ShadowConfig struct {
 	TargetProvider  string  `mapstructure:"target_provider"`
 	TargetModel     string  `mapstructure:"target_model"`
 	TrafficFraction float64 `mapstructure:"traffic_fraction"`
+}
+
+type RateLimitConfig struct {
+	Enabled           bool `mapstructure:"enabled"`
+	RequestsPerMinute int  `mapstructure:"requests_per_minute"`
+	BurstSize         int  `mapstructure:"burst_size"`
 }
 
 var Cfg Config
@@ -126,6 +133,15 @@ func validateConfig() error {
 	}
 	if Cfg.Telemetry.Host == "" {
 		Cfg.Telemetry.Host = "127.0.0.1"
+	}
+
+	if Cfg.RateLimit.Enabled {
+		if Cfg.RateLimit.RequestsPerMinute == 0 {
+			Cfg.RateLimit.RequestsPerMinute = 60 // Default 60 RPM
+		}
+		if Cfg.RateLimit.BurstSize == 0 {
+			Cfg.RateLimit.BurstSize = 5 // Default burst 5
+		}
 	}
 
 	return nil
