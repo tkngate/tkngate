@@ -42,11 +42,20 @@ Route through **OpenAI, Anthropic, DeepSeek, Kimi, and Groq** from a single endp
 ### AI-WAF & DLP
 Block prompt injection attacks and automatically redact PII (credit cards, SSNs, API keys) before they reach the provider.
 
+### Stake-and-Slash Reputation (Mesh)
+Protect donated API keys from abuse using cryptographic Fraud Proofs. Nodes that route malicious prompts bypassing the WAF are penalized via a Stake-and-Slash trust ledger and permanently blacklisted.
+
+### Virtual Keys (Auth Layer)
+Generate secure `tkngate-sk-...` enterprise virtual keys for your teams. Each key acts as an isolated sandbox with hard budget caps, shielding your physical upstream keys.
+
+### Strict Rate Limiting (Token Bucket)
+Protect your budget and providers from autonomous agent "burst loops" with an ultra-low latency, in-memory Token Bucket rate limiter.
+
 ### Budget Traffic Lights
 Real-time spend tracking with Green → Amber → Red zones. Set global limits, per-session caps, and automatic request blocking when budgets are exhausted.
 
-###  Semantic Cache
-Identical prompts are served from an in-memory cache, saving tokens and money. Cache keys are computed from normalised `model + messages` hashes.
+### Distributed Semantic Cache (Redis)
+Identical prompts are served from a distributed Redis cache, enabling horizontal scaling across multiple Tkngate proxy nodes. Save tokens and money globally across your fleet. Cache keys are computed from normalised `model + messages` hashes.
 
 ###  Context Compressor
 Automatically compresses Go, Python, and JavaScript code blocks in prompts — stripping comments and whitespace to reduce token usage by up to 40%.
@@ -66,7 +75,9 @@ See [`tkngate.example.yaml`](./tkngate.example.yaml) for the full reference.
 | Topic | Link |
 |-------|------|
 | Budget System & Traffic Lights | [docs/budgeting.md](./docs/budgeting.md) |
-| DRR Token Mesh | [docs/drr-mesh.md](./docs/drr-mesh.md) |
+| DRR Token Mesh & Reputation | [docs/drr-mesh.md](./docs/drr-mesh.md) |
+| Enterprise Virtual Keys | [docs/virtual-keys.md](./docs/virtual-keys.md) |
+| Strict Rate Limiting | [docs/rate-limiting.md](./docs/rate-limiting.md) |
 | Zero-Knowledge Security | [docs/zero-knowledge-security.md](./docs/zero-knowledge-security.md) |
 | Shadow Mode | [docs/shadow-mode.md](./docs/shadow-mode.md) |
 

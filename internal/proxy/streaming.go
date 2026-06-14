@@ -82,7 +82,8 @@ func (s *streamingResponseBody) Read(p []byte) (int, error) {
 		if data == "[DONE]" {
 			s.done = true
 			s.recordTransaction()
-			s.buffer.WriteString(line + "\n\n")
+			s.buffer.WriteString(line)
+			s.buffer.WriteString("\n\n")
 			return s.buffer.Read(p)
 		}
 
@@ -131,7 +132,8 @@ func (s *streamingResponseBody) Read(p []byte) (int, error) {
 	}
 
 	// Pass through the line (including empty lines for SSE framing)
-	s.buffer.WriteString(line + "\n")
+	s.buffer.WriteString(line)
+	s.buffer.WriteByte('\n')
 	return s.buffer.Read(p)
 }
 
