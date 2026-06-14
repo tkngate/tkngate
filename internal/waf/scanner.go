@@ -11,7 +11,7 @@ var (
 	KnownPromptInjections = [][]byte{
 		[]byte("ignore all previous instructions"),
 		[]byte("ignore previous instructions"),
-		[]byte("you are now DAN"),
+		[]byte("you are now dan"),
 		[]byte("hypothetical scenario"),
 		[]byte("disregard all previous"),
 		[]byte("pretend you are"),

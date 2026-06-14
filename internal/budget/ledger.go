@@ -264,3 +264,55 @@ func (l *Ledger) RevokeVirtualKey(name string) error {
 	return nil
 }
 
+// InitMemoryLedger creates an in-memory ledger strictly for unit testing.
+func InitMemoryLedger() error {
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		return err
+	}
+
+	query := `
+	CREATE TABLE IF NOT EXISTS transactions (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		session_id TEXT DEFAULT '',
+		provider TEXT NOT NULL,
+		model TEXT NOT NULL,
+		input_tokens INTEGER DEFAULT 0,
+		output_tokens INTEGER DEFAULT 0,
+		estimated_cost_usd REAL DEFAULT 0.0,
+		timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+	);
+	
+	CREATE TABLE IF NOT EXISTS tkngate_sessions (
+		session_id TEXT PRIMARY KEY,
+		allocated_budget_usd REAL NOT NULL,
+		consumed_budget_usd REAL DEFAULT 0.0,
+		current_state TEXT DEFAULT 'GREEN',
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	);
+	
+	CREATE TABLE IF NOT EXISTS token_pool_nodes (
+		node_id TEXT PRIMARY KEY,
+		provider_type TEXT NOT NULL,
+		blinded_key_hash TEXT NOT NULL,
+		measured_tpm_limit INTEGER NOT NULL,
+		remaining_tokens_quota INTEGER NOT NULL
+	);
+
+	CREATE TABLE IF NOT EXISTS tkngate_virtual_keys (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		key_hash TEXT UNIQUE NOT NULL,
+		name TEXT NOT NULL,
+		allocated_budget_usd REAL NOT NULL,
+		consumed_budget_usd REAL DEFAULT 0.0,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	);
+	`
+	if _, err := db.Exec(query); err != nil {
+		return err
+	}
+
+	GlobalLedger = &Ledger{db: db}
+	return nil
+}
+
