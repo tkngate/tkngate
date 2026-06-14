@@ -15,6 +15,7 @@ import (
 	"tkngate/internal/cache"
 	"tkngate/internal/compressor"
 	"tkngate/internal/config"
+	"tkngate/internal/limiter"
 	"tkngate/internal/logging"
 	"tkngate/internal/pool"
 	"tkngate/internal/tokenizer"
@@ -96,6 +97,18 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 					return blockRequest(fmt.Sprintf("Session Token Budget Exhausted: %s", sessionID))
 				}
 			}
+		}
+	}
+
+	// v1.5.0: PRE-EMPTIVE RATE LIMITING (Token Bucket)
+	identifier := authenticatedKeyHash
+	if identifier == "" {
+		identifier = sessionID
+	}
+	if identifier != "" {
+		if !limiter.GlobalManager.Allow(identifier) {
+			logging.Logger.Warn("Request blocked: Rate limit exceeded", "identifier", identifier, "provider", provider)
+			return blockRequest(fmt.Sprintf("429 Too Many Requests: Rate limit exceeded for %s", identifier))
 		}
 	}
 
