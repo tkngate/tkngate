@@ -45,9 +45,10 @@ type CompressorConfig struct {
 }
 
 type CacheConfig struct {
-	Enabled    bool `mapstructure:"enabled"`
-	MaxEntries int  `mapstructure:"max_entries"`
-	TTLSeconds int  `mapstructure:"ttl_seconds"`
+	Enabled    bool   `mapstructure:"enabled"`
+	MaxEntries int    `mapstructure:"max_entries"`
+	TTLSeconds int    `mapstructure:"ttl_seconds"`
+	RedisURI   string `mapstructure:"redis_uri"`
 }
 
 type TelemetryConfig struct {

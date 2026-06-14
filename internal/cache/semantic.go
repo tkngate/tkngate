@@ -19,9 +19,16 @@ type CacheEntry struct {
 	HitCount     int
 }
 
-// SemanticCache is a thread-safe in-memory LRU cache keyed by a SHA-256
+// Cache interface abstracts semantic caching engines.
+type Cache interface {
+	Get(payload []byte) *CacheEntry
+	Put(payload []byte, responseBody []byte, statusCode int, estimatedCost float64)
+	Stats() (hits int64, misses int64, size int, savingsUSD float64)
+}
+
+// InMemoryCache is a thread-safe in-memory LRU cache keyed by a SHA-256
 // hash of the normalised request payload (model + messages).
-type SemanticCache struct {
+type InMemoryCache struct {
 	mu       sync.RWMutex
 	entries  map[string]*CacheEntry
 	maxSize  int
@@ -32,10 +39,10 @@ type SemanticCache struct {
 }
 
 // GlobalCache is the singleton cache instance initialised at boot.
-var GlobalCache *SemanticCache
+var GlobalCache Cache
 
 // InitCache creates the global semantic cache.
-func InitCache(maxSize int, ttlSeconds int) {
+func InitCache(maxSize int, ttlSeconds int, redisURI string) {
 	if maxSize <= 0 {
 		maxSize = 512
 	}
@@ -43,12 +50,18 @@ func InitCache(maxSize int, ttlSeconds int) {
 		ttlSeconds = 300 // 5 minutes default
 	}
 
-	GlobalCache = &SemanticCache{
+	if redisURI != "" {
+		GlobalCache = NewRedisCache(redisURI, ttlSeconds)
+		logging.Logger.Info("Distributed Semantic Redis cache initialised", "uri", redisURI, "ttl_seconds", ttlSeconds)
+		return
+	}
+
+	GlobalCache = &InMemoryCache{
 		entries: make(map[string]*CacheEntry),
 		maxSize: maxSize,
 		ttl:     time.Duration(ttlSeconds) * time.Second,
 	}
-	logging.Logger.Info("Semantic cache initialised", "max_entries", maxSize, "ttl_seconds", ttlSeconds)
+	logging.Logger.Info("In-Memory Semantic cache initialised", "max_entries", maxSize, "ttl_seconds", ttlSeconds)
 }
 
 // computeKey generates a deterministic SHA-256 cache key from the request
@@ -84,7 +97,7 @@ func computeKey(payload []byte) string {
 }
 
 // Get looks up a cache entry.  Returns nil on miss or expiry.
-func (c *SemanticCache) Get(payload []byte) *CacheEntry {
+func (c *InMemoryCache) Get(payload []byte) *CacheEntry {
 	key := computeKey(payload)
 
 	c.mu.RLock()
@@ -116,7 +129,7 @@ func (c *SemanticCache) Get(payload []byte) *CacheEntry {
 }
 
 // Put stores a response in the cache.
-func (c *SemanticCache) Put(payload []byte, responseBody []byte, statusCode int, estimatedCost float64) {
+func (c *InMemoryCache) Put(payload []byte, responseBody []byte, statusCode int, estimatedCost float64) {
 	key := computeKey(payload)
 
 	c.mu.Lock()
@@ -139,7 +152,7 @@ func (c *SemanticCache) Put(payload []byte, responseBody []byte, statusCode int,
 
 // evictOldest removes the entry with the oldest CachedAt timestamp.
 // Must be called while holding c.mu write lock.
-func (c *SemanticCache) evictOldest() {
+func (c *InMemoryCache) evictOldest() {
 	var oldestKey string
 	var oldestTime time.Time
 
@@ -156,7 +169,7 @@ func (c *SemanticCache) evictOldest() {
 }
 
 // Stats returns cache statistics.
-func (c *SemanticCache) Stats() (hits int64, misses int64, size int, savingsUSD float64) {
+func (c *InMemoryCache) Stats() (hits int64, misses int64, size int, savingsUSD float64) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.hits, c.misses, len(c.entries), c.savings
