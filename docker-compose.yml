@@ -1,6 +1,18 @@
 version: '3.8'
 
 services:
+  tkngate:
+    build: .
+    ports:
+      - "7477:7477"   # Proxy port
+      - "8081:8081"   # Telemetry + Prometheus /metrics
+    volumes:
+      - ./tkngate.yaml:/app/tkngate.yaml
+    environment:
+      - TKNGATE_MASTER_KEY=${TKNGATE_MASTER_KEY}
+    depends_on:
+      - redis
+
   redis:
     image: redis:7-alpine
     ports:

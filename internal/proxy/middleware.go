@@ -18,6 +18,7 @@ import (
 	"tkngate/internal/limiter"
 	"tkngate/internal/logging"
 	"tkngate/internal/pool"
+	"tkngate/internal/telemetry"
 	"tkngate/internal/tokenizer"
 	"tkngate/internal/waf"
 )
@@ -121,6 +122,8 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		// 2.1. AI-WAF: Prompt Injection Firewall
 		if err := waf.DetectJailbreak(inputBody); err != nil {
 			logging.Logger.Error("WAF Blocked Request", "reason", err, "session", sessionID)
+			telemetry.WafInterceptsTotal.WithLabelValues("jailbreak").Inc()
+			telemetry.RequestsTotal.WithLabelValues(provider, "403").Inc()
 			return blockRequest(fmt.Sprintf("WAF Blocked Request: %v", err))
 		}
 
@@ -173,6 +176,8 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	if cache.GlobalCache != nil && len(inputBody) > 0 {
 		if hit := cache.GlobalCache.Get(inputBody); hit != nil {
 			logging.Logger.Info("Semantic cache HIT — returning cached response", "provider", provider, "cost_saved", "$0.00")
+			telemetry.CacheHitsTotal.Inc()
+			telemetry.RequestsTotal.WithLabelValues(provider, fmt.Sprintf("%d", hit.StatusCode)).Inc()
 			return &http.Response{
 				Status:        fmt.Sprintf("%d OK", hit.StatusCode),
 				StatusCode:    hit.StatusCode,
@@ -381,6 +386,9 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 			if err := budget.GlobalLedger.RecordTransaction(tx); err != nil {
 				logging.Logger.Error("failed to record transaction", "error", err)
 			}
+
+			telemetry.RequestsTotal.WithLabelValues(provider, fmt.Sprintf("%d", res.StatusCode)).Inc()
+			telemetry.TokensConsumedTotal.Add(float64(inTokens + outTokens))
 
 			latency := time.Since(start)
 			logging.Logger.Info("Request handled",

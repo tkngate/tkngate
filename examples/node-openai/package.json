@@ -1,0 +1,10 @@
+{
+  "name": "node-openai-example",
+  "version": "1.0.0",
+  "description": "Tkngate OpenAI Node.js SDK example",
+  "main": "agent.js",
+  "type": "module",
+  "dependencies": {
+    "openai": "^4.0.0"
+  }
+}
