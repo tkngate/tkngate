@@ -5,6 +5,7 @@ import (
 	"sync"
 	"tkngate/internal/budget"
 	"tkngate/internal/crypto"
+	"tkngate/internal/mesh"
 )
 
 type DRREngine struct {
@@ -40,10 +41,20 @@ func (d *DRREngine) GetNextKey(provider string, sessionID string, estimatedToken
 	defer d.mu.Unlock()
 
 	// 1. BitTorrent Fairness Engine (Free-Rider Limit)
-	// If the session has consumed more than 10,000 free tokens from the public pool, block them.
-	// In a real production deployment, we would check if they are a "donor" to increase this quota.
 	if d.sessionUsage[sessionID] > 10000 {
 		return "", fmt.Errorf("Fairness Engine: Token bucket exhausted for free-rider session %s. Please donate keys to increase your priority limit", sessionID)
+	}
+
+	// 2. Mesh Reputation System (v1.6.0)
+	if mesh.GlobalReputation != nil {
+		if mesh.GlobalReputation.IsBlacklisted(sessionID) {
+			return "", fmt.Errorf("node %s is blacklisted from the mesh due to fraud", sessionID)
+		}
+
+		tier := mesh.GlobalReputation.GetTier(sessionID)
+		if tier == mesh.TierUntrusted {
+			return "", fmt.Errorf("node %s is untrusted", sessionID)
+		}
 	}
 
 	idx := d.currentIndex[provider]

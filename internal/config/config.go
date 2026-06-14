@@ -16,6 +16,7 @@ type Config struct {
 	Telemetry  TelemetryConfig           `mapstructure:"telemetry"`
 	Shadow     ShadowConfig              `mapstructure:"shadow"`
 	RateLimit  RateLimitConfig           `mapstructure:"rate_limit"`
+	Mesh       MeshConfig                `mapstructure:"mesh"`
 }
 
 type ServerConfig struct {
@@ -69,6 +70,16 @@ type RateLimitConfig struct {
 	Enabled           bool `mapstructure:"enabled"`
 	RequestsPerMinute int  `mapstructure:"requests_per_minute"`
 	BurstSize         int  `mapstructure:"burst_size"`
+}
+
+type MeshConfig struct {
+	ReputationEnabled    bool    `mapstructure:"reputation_enabled"`
+	PreflightModeration  bool    `mapstructure:"preflight_moderation"`
+	ModerationAPIKey     string  `mapstructure:"moderation_api_key"`
+	InitialTrustScore    float64 `mapstructure:"initial_trust_score"`
+	SlashPenalty         float64 `mapstructure:"slash_penalty"`
+	BlacklistThreshold   float64 `mapstructure:"blacklist_threshold"`
+	PremiumTrustMinimum  float64 `mapstructure:"premium_trust_minimum"`
 }
 
 var Cfg Config
@@ -142,6 +153,19 @@ func validateConfig() error {
 		if Cfg.RateLimit.BurstSize == 0 {
 			Cfg.RateLimit.BurstSize = 5 // Default burst 5
 		}
+	}
+
+	if Cfg.Mesh.InitialTrustScore == 0 {
+		Cfg.Mesh.InitialTrustScore = 50.0 // New nodes start at 50/100
+	}
+	if Cfg.Mesh.SlashPenalty == 0 {
+		Cfg.Mesh.SlashPenalty = 25.0 // Lose 25 points per violation
+	}
+	if Cfg.Mesh.BlacklistThreshold == 0 {
+		Cfg.Mesh.BlacklistThreshold = 10.0 // Blacklisted below 10
+	}
+	if Cfg.Mesh.PremiumTrustMinimum == 0 {
+		Cfg.Mesh.PremiumTrustMinimum = 80.0 // Need 80+ for premium keys
 	}
 
 	return nil
