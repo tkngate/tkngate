@@ -28,11 +28,11 @@ func TestCheckModeration_NoAPIKey(t *testing.T) {
 	config.Cfg.Mesh.ModerationAPIKey = ""
 
 	safe, err := CheckModeration("some prompt")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	if err == nil {
+		t.Fatalf("expected error when no api key is configured and fail-closed is active")
 	}
-	if !safe {
-		t.Error("expected fail-open safe=true when no api key is configured")
+	if safe {
+		t.Error("expected fail-closed safe=false when no api key is configured")
 	}
 }
 
