@@ -62,6 +62,15 @@ func InitLedger() error {
 		measured_tpm_limit INTEGER NOT NULL,
 		remaining_tokens_quota INTEGER NOT NULL
 	);
+
+	CREATE TABLE IF NOT EXISTS tkngate_virtual_keys (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		key_hash TEXT UNIQUE NOT NULL,
+		name TEXT NOT NULL,
+		allocated_budget_usd REAL NOT NULL,
+		consumed_budget_usd REAL DEFAULT 0.0,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	);
 	`
 	if _, err := db.Exec(query); err != nil {
 		return err
@@ -89,6 +98,11 @@ func (l *Ledger) RecordTransaction(tx Transaction) error {
 	if tx.SessionID != "" {
 		_, err = l.db.Exec(`UPDATE tkngate_sessions SET consumed_budget_usd = consumed_budget_usd + ? WHERE session_id = ?`, tx.EstimatedCostUSD, tx.SessionID)
 	}
+
+	if tx.VirtualKeyHash != "" {
+		_, err = l.db.Exec(`UPDATE tkngate_virtual_keys SET consumed_budget_usd = consumed_budget_usd + ? WHERE key_hash = ?`, tx.EstimatedCostUSD, tx.VirtualKeyHash)
+	}
+
 	return err
 }
 
@@ -188,3 +202,65 @@ func (l *Ledger) DecrementPoolQuota(nodeID string, tokens int) {
 	defer l.mu.Unlock()
 	l.db.Exec(`UPDATE token_pool_nodes SET remaining_tokens_quota = remaining_tokens_quota - ? WHERE node_id = ? AND remaining_tokens_quota > 0`, tokens, nodeID)
 }
+
+// v1.3.0: Virtual Key Management
+
+type VirtualKeyRecord struct {
+	ID              int
+	KeyHash         string
+	Name            string
+	AllocatedBudget float64
+	ConsumedBudget  float64
+	CreatedAt       string
+}
+
+func (l *Ledger) RegisterVirtualKey(keyHash, name string, allocatedBudget float64) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	_, err := l.db.Exec(`INSERT INTO tkngate_virtual_keys (key_hash, name, allocated_budget_usd) VALUES (?, ?, ?)`, keyHash, name, allocatedBudget)
+	return err
+}
+
+func (l *Ledger) GetVirtualKeys() ([]VirtualKeyRecord, error) {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	rows, err := l.db.Query(`SELECT id, key_hash, name, allocated_budget_usd, consumed_budget_usd, created_at FROM tkngate_virtual_keys`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var keys []VirtualKeyRecord
+	for rows.Next() {
+		var k VirtualKeyRecord
+		if err := rows.Scan(&k.ID, &k.KeyHash, &k.Name, &k.AllocatedBudget, &k.ConsumedBudget, &k.CreatedAt); err == nil {
+			keys = append(keys, k)
+		}
+	}
+	return keys, nil
+}
+
+func (l *Ledger) ChargeVirtualKey(keyHash string, amount float64) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	_, err := l.db.Exec(`UPDATE tkngate_virtual_keys SET consumed_budget_usd = consumed_budget_usd + ? WHERE key_hash = ?`, amount, keyHash)
+	return err
+}
+
+func (l *Ledger) RevokeVirtualKey(name string) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	res, err := l.db.Exec(`DELETE FROM tkngate_virtual_keys WHERE name = ?`, name)
+	if err != nil {
+		return err
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
