@@ -47,7 +47,7 @@ var serveCmd = &cobra.Command{
 
 		// Init semantic cache
 		if config.Cfg.Cache.Enabled {
-			cache.InitCache(config.Cfg.Cache.MaxEntries, config.Cfg.Cache.TTLSeconds)
+			cache.InitCache(config.Cfg.Cache.MaxEntries, config.Cfg.Cache.TTLSeconds, config.Cfg.Cache.RedisURI)
 			logging.Logger.Info("Semantic cache enabled")
 		}
 
