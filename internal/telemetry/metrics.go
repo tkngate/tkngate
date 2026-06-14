@@ -1,0 +1,42 @@
+package telemetry
+
+import (
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+)
+
+var (
+	// RequestsTotal tracks all incoming LLM proxy requests.
+	RequestsTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "tkngate_requests_total",
+			Help: "The total number of processed requests",
+		},
+		[]string{"provider", "status"},
+	)
+
+	// TokensConsumedTotal tracks the overall sum of prompt + completion tokens.
+	TokensConsumedTotal = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Name: "tkngate_tokens_consumed_total",
+			Help: "The total number of tokens consumed (prompt + completion)",
+		},
+	)
+
+	// CacheHitsTotal tracks successful semantic cache hits.
+	CacheHitsTotal = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Name: "tkngate_cache_hits_total",
+			Help: "The total number of semantic cache hits",
+		},
+	)
+
+	// WafInterceptsTotal tracks requests blocked by the AI WAF.
+	WafInterceptsTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "tkngate_waf_intercepts_total",
+			Help: "The total number of requests blocked by the AI WAF",
+		},
+		[]string{"reason"},
+	)
+)

@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.7.0] - Enterprise Observability & Launch Readiness
+### Added
+- **Prometheus Metrics**: Native `/metrics` endpoint exposing `tkngate_requests_total`, `tkngate_tokens_consumed_total`, `tkngate_cache_hits_total`, and `tkngate_waf_intercepts_total` for Grafana/Datadog integration.
+- **Dockerfile**: Multi-stage production container image (Alpine-based, under 25MB).
+- **Docker Compose**: Full stack (`tkngate` + `redis`) single-command deployment.
+- **SDK Examples**: Drop-in Python and Node.js examples showing one-line integration with the OpenAI SDK.
+
 ## [v1.6.1] - Generate Master Key CLI
 ### Added
 - **Master Key Generator**: Added `tkngate config generate-master-key` CLI command to easily generate secure 32-character AES-256-GCM encryption keys.

@@ -9,6 +9,8 @@ import (
 	"tkngate/internal/budget"
 	"tkngate/internal/cache"
 	"tkngate/internal/logging"
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 // StartTelemetryServer starts the local REST API for telemetry data.
@@ -20,6 +22,7 @@ func StartTelemetryServer(host string, port int) error {
 	mux.HandleFunc("/api/v1/pool", withCORS(handlePool))
 	mux.HandleFunc("/api/v1/mesh/stats", withCORS(handleMeshStats))
 	mux.HandleFunc("/api/v1/vkeys", withCORS(handleVirtualKeys))
+	mux.Handle("/metrics", promhttp.Handler())
 
 	addr := fmt.Sprintf("%s:%d", host, port)
 	logging.Logger.Info("Telemetry API starting", "address", addr)
