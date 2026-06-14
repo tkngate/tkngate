@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.2.0] - Enterprise Resiliency
+### Added
+- **SSE Streaming Support**: Native Server-Sent Events interception with real-time chunk token counting and mid-stream budget cutoffs.
+- **Enhanced PII/DLP Engine**: Added typed redaction markers (`[REDACTED_EMAIL]`, `[REDACTED_AWS_KEY]`) for Emails, Phones, AWS Keys, GitHub Tokens, JWTs, and Private Keys.
+- **Universal API Router Expansion**: Added `anthropic` and `openai` as proper smart fallback providers with automatic payload and header translation.
+
 ## [v1.1.1] - CLI UI Update
 ### Added
 - Beautiful terminal output using `fatih/color` for `tkngate config show`.

@@ -200,8 +200,24 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 				// 1. Swap Provider for the next loop iteration (so DRR grabs the new provider's key)
 				provider = fallbackProvider
 				
-				// 2. Rewrite HTTP Destination and JSON payload model (Assuming standard OpenAI-compatible endpoints)
+				// 2. Rewrite HTTP Destination and JSON payload model
 				switch provider {
+				case "anthropic":
+					req.URL.Host = "api.anthropic.com"
+					req.Host = "api.anthropic.com"
+					req.URL.Path = "/v1/messages"
+					inputBody = replaceModel(inputBody, "claude-sonnet-4-20250514")
+					// Anthropic uses x-api-key header instead of Bearer token
+					req.Header.Del("Authorization")
+					if provCfg, ok := config.Cfg.Providers["anthropic"]; ok {
+						req.Header.Set("x-api-key", provCfg.APIKey)
+						req.Header.Set("anthropic-version", "2023-06-01")
+					}
+				case "openai":
+					req.URL.Host = "api.openai.com"
+					req.Host = "api.openai.com"
+					req.URL.Path = "/v1/chat/completions"
+					inputBody = replaceModel(inputBody, "gpt-4o")
 				case "deepseek":
 					req.URL.Host = "api.deepseek.com"
 					req.Host = "api.deepseek.com"
@@ -236,56 +252,90 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		return res, roundTripErr
 	}
 
-	// 4. CAPTURE OUTPUT (For token counting)
-	var outputBody []byte
-	if res.Body != nil {
-		// Limit response body to 10MB to prevent DoS via unbounded memory allocation
-		outputBody, _ = io.ReadAll(io.LimitReader(res.Body, 10*1024*1024))
-		res.Body = io.NopCloser(bytes.NewBuffer(outputBody))
+	// 4. HANDLE STREAMING vs BUFFERED RESPONSES
+	// v1.2.0: If the response is an SSE stream, wrap it with our real-time token counter.
+	// The streaming interceptor will count tokens per chunk and enforce budget limits mid-stream.
+	if isStreamingResponse(res) {
+		logging.Logger.Info("SSE streaming response detected — engaging real-time token interceptor", "provider", provider, "model", reqModel)
+		wrapStreamingResponse(res, t.Counter, reqModel, provider, sessionID)
+
+		// Record input tokens only (output tokens are counted by the stream interceptor)
+		go func() {
+			if len(inputBody) > 0 {
+				inTokens := t.Counter.Count(string(inputBody), reqModel)
+				cost := tokenizer.EstimateCost(provider, reqModel, inTokens, 0)
+				tx := budget.Transaction{
+					SessionID:        sessionID,
+					Provider:         provider,
+					Model:            reqModel,
+					InputTokens:      inTokens,
+					OutputTokens:     0,
+					EstimatedCostUSD: cost,
+				}
+				if err := budget.GlobalLedger.RecordTransaction(tx); err != nil {
+					logging.Logger.Error("failed to record input transaction for stream", "error", err)
+				}
+			}
+			latency := time.Since(start)
+			logging.Logger.Info("SSE stream initiated",
+				"provider", provider,
+				"model", reqModel,
+				"latency_ms", latency.Milliseconds(),
+				"zone", status.Zone)
+		}()
+	} else {
+		// Standard (non-streaming) response handling
+		// 4. CAPTURE OUTPUT (For token counting)
+		var outputBody []byte
+		if res.Body != nil {
+			// Limit response body to 10MB to prevent DoS via unbounded memory allocation
+			outputBody, _ = io.ReadAll(io.LimitReader(res.Body, 10*1024*1024))
+			res.Body = io.NopCloser(bytes.NewBuffer(outputBody))
+		}
+
+		// 4.5. STORE IN SEMANTIC CACHE (only on success)
+		if cache.GlobalCache != nil && res.StatusCode >= 200 && res.StatusCode < 300 && len(inputBody) > 0 {
+			cost := tokenizer.EstimateCost(provider, reqModel, t.Counter.Count(string(inputBody), reqModel), t.Counter.Count(string(outputBody), reqModel))
+			cache.GlobalCache.Put(inputBody, outputBody, res.StatusCode, cost)
+			res.Header.Set("X-Tkngate-Cache", "MISS")
+		}
+
+		// 5. TOKEN COUNTING & LEDGER UPDATE
+		go func() {
+			inTokens := 0
+			outTokens := 0
+
+			if len(inputBody) > 0 {
+				inTokens = t.Counter.Count(string(inputBody), reqModel)
+			}
+			if len(outputBody) > 0 {
+				outTokens = t.Counter.Count(string(outputBody), reqModel)
+			}
+
+			cost := tokenizer.EstimateCost(provider, reqModel, inTokens, outTokens)
+
+			tx := budget.Transaction{
+				SessionID:        sessionID,
+				Provider:         provider,
+				Model:            reqModel,
+				InputTokens:      inTokens,
+				OutputTokens:     outTokens,
+				EstimatedCostUSD: cost,
+			}
+
+			if err := budget.GlobalLedger.RecordTransaction(tx); err != nil {
+				logging.Logger.Error("failed to record transaction", "error", err)
+			}
+
+			latency := time.Since(start)
+			logging.Logger.Info("Request handled",
+				"provider", provider,
+				"model", reqModel,
+				"cost_usd", cost,
+				"latency_ms", latency.Milliseconds(),
+				"zone", status.Zone)
+		}()
 	}
-
-	// 4.5. STORE IN SEMANTIC CACHE (only on success)
-	if cache.GlobalCache != nil && res.StatusCode >= 200 && res.StatusCode < 300 && len(inputBody) > 0 {
-		cost := tokenizer.EstimateCost(provider, reqModel, t.Counter.Count(string(inputBody), reqModel), t.Counter.Count(string(outputBody), reqModel))
-		cache.GlobalCache.Put(inputBody, outputBody, res.StatusCode, cost)
-		res.Header.Set("X-Tkngate-Cache", "MISS")
-	}
-
-	// 5. TOKEN COUNTING & LEDGER UPDATE
-	go func() {
-		inTokens := 0
-		outTokens := 0
-
-		if len(inputBody) > 0 {
-			inTokens = t.Counter.Count(string(inputBody), reqModel)
-		}
-		if len(outputBody) > 0 {
-			outTokens = t.Counter.Count(string(outputBody), reqModel)
-		}
-
-		cost := tokenizer.EstimateCost(provider, reqModel, inTokens, outTokens)
-
-		tx := budget.Transaction{
-			SessionID:        sessionID,
-			Provider:         provider,
-			Model:            reqModel,
-			InputTokens:      inTokens,
-			OutputTokens:     outTokens,
-			EstimatedCostUSD: cost,
-		}
-
-		if err := budget.GlobalLedger.RecordTransaction(tx); err != nil {
-			logging.Logger.Error("failed to record transaction", "error", err)
-		}
-
-		latency := time.Since(start)
-		logging.Logger.Info("Request handled",
-			"provider", provider,
-			"model", reqModel,
-			"cost_usd", cost,
-			"latency_ms", latency.Milliseconds(),
-			"zone", status.Zone)
-	}()
 
 	// 6. SHADOW MODE (v1.1.0) — Fire-and-forget mirror to a shadow provider
 	if config.Cfg.Shadow.Enabled && len(inputBody) > 0 && strings.HasSuffix(req.URL.Path, "/chat/completions") {

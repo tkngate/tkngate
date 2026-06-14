@@ -38,7 +38,7 @@ var showCmd = &cobra.Command{
 		}
 		
 		fmt.Println()
-		color.Cyan("=== Tkngate Configuration (v1.1.1) ===")
+		color.Cyan("=== Tkngate Configuration (v1.2.0) ===")
 		fmt.Println()
 		
 		// Server
