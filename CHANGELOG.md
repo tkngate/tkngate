@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.6.0] - Stake-and-Slash Mesh Reputation
+### Added
+- **Reputation Ledger**: Added SQLite-backed trust scoring (`NEW`, `TRUSTED`, `PREMIUM`, `UNTRUSTED`).
+- **Pre-flight Moderation**: Requests routed to mesh nodes are preemptively checked via OpenAI's `/v1/moderations` to protect donated keys from abuse.
+- **Fraud Proofs**: Added cryptographic `SubmitFraudProof` pipeline to slash and blacklist malicious senders.
+- **Trust-Tier Routing**: Integrated reputation scores directly into the Deficit Round Robin (DRR) engine.
+
+## [v1.5.0] - Strict Rate Limiting
+### Added
+- **Token Bucket Middleware**: Integrated `golang.org/x/time/rate` for highly-performant, in-memory rate limiting.
+- **Agent Abuse Protection**: Configurable RPM and burst limits dynamically protect upstream providers from autonomous agent loops.
+
+## [v1.4.0] - Distributed Semantic Caching
+### Added
+- **Redis Engine Integration**: Swapped local LRU cache for a distributed Redis-backed cache for horizontal scalability.
+- **Fleet-Wide Telemetry**: Centralized hits, misses, and savings metrics via atomic Redis counters.
+
+## [v1.3.0] - Enterprise Virtual Keys
+### Added
+- **Virtual Auth Layer**: Issued `tkngate-sk-...` virtual keys, shifting from header-based trust to true authentication.
+- **CLI Management**: Added `tkngate auth list` and `tkngate auth revoke`.
+
 ## [v1.2.0] - Enterprise Resiliency
 ### Added
 - **SSE Streaming Support**: Native Server-Sent Events interception with real-time chunk token counting and mid-stream budget cutoffs.
