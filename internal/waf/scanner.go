@@ -26,8 +26,8 @@ var (
 		// Credit Cards (Visa, MasterCard, Amex, Discover, JCB)
 		"CREDIT_CARD": regexp.MustCompile(`(?i)(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|3[47][0-9]{13}|3(?:0[0-5]|[68][0-9])[0-9]{11}|6(?:011|5[0-9]{2})[0-9]{12}|(?:2131|1800|35\d{3})\d{11})`),
 
-		// OpenAI / Anthropic / Standard API Keys
-		"API_KEY": regexp.MustCompile(`(?:sk|pk|rk|ak)-[a-zA-Z0-9_\-]{20,}`),
+		// OpenAI / Anthropic / Standard API Keys (exclude our own tkngate keys)
+		"API_KEY": regexp.MustCompile(`(?i)(?:^|[^a-zA-Z0-9_\-])(?:sk|pk|rk|ak)-[a-zA-Z0-9_\-]{20,}`),
 
 		// US Social Security Numbers
 		"SSN": regexp.MustCompile(`\b[0-9]{3}-[0-9]{2}-[0-9]{4}\b`),

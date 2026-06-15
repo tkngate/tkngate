@@ -4,21 +4,21 @@ server:
 
 providers:
   openai:
-    api_key: "sk-proj-xxx"
+    api_key: "sk-proj-YOUR_OPENAI_KEY_HERE"
     base_url: "https://api.openai.com/v1"
-    default_model: "gpt-6o"
+    default_model: "gpt-4o"
   anthropic:
-    api_key: "sk-ant-xxx"
+    api_key: "sk-ant-YOUR_ANTHROPIC_KEY_HERE"
     base_url: "https://api.anthropic.com/v1"
-    default_model: "claude-4.8-opus"
+    default_model: "claude-sonnet-4-20250514"
 
 budget:
   global_limit_usd: 50.00
   max_session_cost_usd: 5.00
   fallback_model: "gpt-4o-mini"
   fallback_provider: "deepseek"
-  amber_threshold_pct: 70   # Switch to amber at 70% spend
-  red_threshold_pct: 95     # Hard block at 95% spend
+  amber_threshold_pct: 70
+  red_threshold_pct: 95
   reset_interval: "monthly"
 
 compressor:
@@ -28,8 +28,9 @@ compressor:
 
 cache:
   enabled: true
-  max_entries: 512          # Max cached responses in memory
-  ttl_seconds: 300          # Cache entries expire after 5 minutes
+  max_entries: 512
+  ttl_seconds: 300
+  # redis_uri: "redis://localhost:6379"  # Uncomment for distributed caching
 
 telemetry:
   enabled: true
@@ -39,5 +40,19 @@ telemetry:
 shadow:
   enabled: false
   target_provider: "deepseek"
-  target_model: "deepseek-chat-v3"
+  target_model: "deepseek-chat"
   traffic_fraction: 0.1
+
+rate_limit:
+  enabled: true
+  requests_per_minute: 60
+  burst_size: 10
+
+mesh:
+  reputation_enabled: false
+  preflight_moderation: false
+  # moderation_api_key: "sk-proj-YOUR_OPENAI_KEY"  # Required if preflight_moderation is true
+  initial_trust_score: 50.0
+  slash_penalty: 25.0
+  blacklist_threshold: 10.0
+  premium_trust_minimum: 80.0

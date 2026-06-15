@@ -9,6 +9,7 @@ import (
 	"tkngate/internal/cache"
 	"tkngate/internal/config"
 	"tkngate/internal/crypto"
+	"tkngate/internal/limiter"
 	"tkngate/internal/logging"
 	"tkngate/internal/pool"
 	"tkngate/internal/proxy"
@@ -37,13 +38,17 @@ var serveCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// Init crypto engine
+		// Init crypto engine (FATAL if missing — mesh encryption requires this)
 		if err := crypto.InitCrypto(); err != nil {
-			logging.Logger.Error("failed to init crypto engine", "error", err)
+			logging.Logger.Error("FATAL: crypto engine failed to initialise. Set TKNGATE_MASTER_KEY (32 chars). Run: tkngate config generate-master-key", "error", err)
+			os.Exit(1)
 		}
 
 		// Init DRR
 		pool.InitDRR()
+
+		// Init rate limiter cleanup (evicts stale limiters every 5 min)
+		limiter.GlobalManager.StartCleanup()
 
 		// Init semantic cache
 		if config.Cfg.Cache.Enabled {
@@ -71,8 +76,8 @@ var serveCmd = &cobra.Command{
 		
 		// Print sexy banner
 		color.Green(tkngateBanner)
-		color.White("🚀 Starting tkngate daemon (v1.2.0) on %s\n", color.GreenString("http://%s", addr))
-		color.White("🔌 Telemetry API active on %s\n", color.CyanString("http://%s:%d", config.Cfg.Telemetry.Host, config.Cfg.Telemetry.Port))
+		color.White("Starting tkngate daemon (%s) on %s\n", rootCmd.Version, color.GreenString("http://%s", addr))
+		color.White("Telemetry API active on %s\n", color.CyanString("http://%s:%d", config.Cfg.Telemetry.Host, config.Cfg.Telemetry.Port))
 		fmt.Println(color.HiBlackString("─────────────────────────────────────────────────────────────────────────"))
 		
 		logging.Logger.Info("proxy engine online", "address", addr)

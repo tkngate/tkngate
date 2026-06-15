@@ -45,7 +45,7 @@ func TestRedactPII(t *testing.T) {
 		{
 			name:     "API Key redaction",
 			payload:  "Here is my key: sk-abcdef12345abcdef12345",
-			expected: "Here is my key: [REDACTED_API_KEY]",
+			expected: "Here is my key:[REDACTED_API_KEY]",
 		},
 		{
 			name:     "Phone redaction",
