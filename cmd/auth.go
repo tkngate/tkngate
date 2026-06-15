@@ -74,14 +74,32 @@ var listCmd = &cobra.Command{
 		}
 
 		fmt.Println()
-		color.Green("=== Active Virtual Keys ===")
+		color.HiMagenta("  ✦ ACTIVE VIRTUAL KEYS ✦")
+		fmt.Println()
 		if len(keys) == 0 {
-			color.White("No active keys found.")
+			color.White("  No active keys found. Use 'tkngate auth issue' to create one.")
+			fmt.Println()
 			return
 		}
+		
+		fmt.Printf("  %-25s %-20s %-20s %s\n", "NAME", "CONSUMED", "ALLOCATED", "CREATED")
+		fmt.Println(color.HiBlackString("  ────────────────────────────────────────────────────────────────────────────────────────"))
 		for _, k := range keys {
-			fmt.Printf("- %s (Budget: $%.2f / $%.2f) [%s]\n", color.CyanString(k.Name), k.ConsumedBudget, k.AllocatedBudget, k.CreatedAt)
+			consumedStr := fmt.Sprintf("$%.2f", k.ConsumedBudget)
+			allocatedStr := fmt.Sprintf("$%.2f", k.AllocatedBudget)
+			
+			// Highlight if consumed is close to allocated
+			if k.ConsumedBudget >= k.AllocatedBudget {
+				consumedStr = color.RedString(consumedStr)
+			} else if k.ConsumedBudget >= k.AllocatedBudget*0.75 {
+				consumedStr = color.YellowString(consumedStr)
+			} else {
+				consumedStr = color.GreenString(consumedStr)
+			}
+			
+			fmt.Printf("  %-25s %-20s %-20s %s\n", color.CyanString(k.Name), consumedStr, allocatedStr, color.HiBlackString(k.CreatedAt))
 		}
+		fmt.Println(color.HiBlackString("  ────────────────────────────────────────────────────────────────────────────────────────"))
 		fmt.Println()
 	},
 }

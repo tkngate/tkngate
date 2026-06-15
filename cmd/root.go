@@ -14,8 +14,6 @@ var tkngateBanner = `
    / /    / /__/ /   /    /   / / __   / /| |  / /    / __/    
   / /    / /  / /   / /|  /  / /_/ /  / ___ | / /    / /___    
  /_/    /_/  /_/   /_/ |_/   \____/  /_/  |_|/_/    /_____/    
-                                                               
-        The Cloudflare for Autonomous AI Agents
 `
 
 var rootCmd = &cobra.Command{
@@ -23,8 +21,10 @@ var rootCmd = &cobra.Command{
 	Version: "v1.7.0",
 	Short:   "tkngate is an enterprise token-management reverse proxy",
 	Long: color.GreenString(tkngateBanner) + `
-tkngate is an open-source, zero-knowledge reverse proxy daemon for LLM APIs.
-It provides P2P token pooling, real-time budget enforcement, and semantic caching.`,
+  ` + color.HiMagentaString("✦ The Cloudflare for Autonomous AI Agents ✦") + `
+
+  ` + color.CyanString("tkngate") + ` is a zero-knowledge reverse proxy daemon for LLM APIs.
+  It provides ` + color.YellowString("P2P token pooling") + `, real-time ` + color.YellowString("budget enforcement") + `, and ` + color.YellowString("semantic caching") + `.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cmd.Help()
 	},

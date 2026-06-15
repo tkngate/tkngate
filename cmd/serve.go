@@ -76,8 +76,33 @@ var serveCmd = &cobra.Command{
 		
 		// Print sexy banner
 		color.Green(tkngateBanner)
-		color.White("Starting tkngate daemon (%s) on %s\n", rootCmd.Version, color.GreenString("http://%s", addr))
-		color.White("Telemetry API active on %s\n", color.CyanString("http://%s:%d", config.Cfg.Telemetry.Host, config.Cfg.Telemetry.Port))
+		fmt.Println()
+		color.HiMagenta("  ✦ ENGINE STARTUP SEQUENCE ✦")
+		fmt.Println()
+		
+		fmt.Printf("  %s Crypto Engine (AES-256)\n", color.GreenString("[✓]"))
+		fmt.Printf("  %s Ledger & Budget Guard\n", color.GreenString("[✓]"))
+		
+		if config.Cfg.Cache.Enabled {
+			fmt.Printf("  %s Semantic Cache (Max: %d)\n", color.GreenString("[✓]"), config.Cfg.Cache.MaxEntries)
+		} else {
+			fmt.Printf("  %s Semantic Cache\n", color.HiBlackString("[-]"))
+		}
+		
+		if config.Cfg.RateLimit.Enabled {
+			fmt.Printf("  %s Rate Limiter (%d req/min)\n", color.GreenString("[✓]"), config.Cfg.RateLimit.RequestsPerMinute)
+		} else {
+			fmt.Printf("  %s Rate Limiter\n", color.HiBlackString("[-]"))
+		}
+		
+		fmt.Printf("  %s DRR Mesh Pool\n", color.GreenString("[✓]"))
+		fmt.Println()
+		
+		color.White("  Starting daemon (%s) on %s\n", rootCmd.Version, color.GreenString("http://%s", addr))
+		if config.Cfg.Telemetry.Enabled {
+			color.White("  Telemetry active on %s\n", color.CyanString("http://%s:%d", config.Cfg.Telemetry.Host, config.Cfg.Telemetry.Port))
+		}
+		fmt.Println()
 		fmt.Println(color.HiBlackString("─────────────────────────────────────────────────────────────────────────"))
 		
 		logging.Logger.Info("proxy engine online", "address", addr)

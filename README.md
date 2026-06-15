@@ -1,14 +1,12 @@
 <p align="center">
-  <h1 align="center"> Tkngate</h1>
-  <p align="center"><strong>The Cloudflare for Autonomous AI Agents</strong></p>
-  <p align="center">
-    Zero-knowledge reverse proxy · Multi-provider failover · P2P token mesh
-  </p>
+  <img src="https://via.placeholder.com/800x200.png?text=TKNGATE+BANNER" alt="Tkngate Banner" width="100%">
 </p>
 
+<h1 align="center">Tkngate: The P2P Token Mesh</h1>
+<p align="center"><strong>The Cloudflare for Autonomous AI Agents</strong></p>
 <p align="center">
   <a href="#install">Install</a> •
-  <a href="#why-tkngate">Why Tkngate</a> •
+  <a href="#the-tragedy-of-the-commons-the-mesh">The Mesh</a> •
   <a href="#features">Features</a> •
   <a href="#configuration">Configuration</a> •
   <a href="./docs">Docs</a>
@@ -16,61 +14,62 @@
 
 ---
 
-## Why Tkngate
+## What is Tkngate?
 
-Your autonomous agents crash when OpenAI goes down. Your budget bleeds when a rogue loop burns $200 in tokens. Your API keys sit in plain text in `.env` files.
+Tkngate is a zero-knowledge reverse proxy daemon that protects your autonomous agents and LLM budgets. It provides **Strict Rate Limiting**, **Semantic Caching**, and **Universal Failover** out of the box.
 
-**Tkngate fixes all of this.** It sits between your agents and the AI providers, acting as an intelligent shield that manages keys, budgets, security, and failover — automatically.
+But its killer feature is the **Deficit Round Robin (DRR) Token Mesh**: *BitTorrent for LLM Tokens.*
 
-## Install
+If you run parallelized agents, you will quickly hit OpenAI's rate limits (`429 Too Many Requests`). Tkngate solves this by allowing developers and enterprises to safely pool their unused API keys into a decentralized, zero-knowledge mesh, instantly multiplying bandwidth for everyone.
+
+---
+
+## 🕸️ The Mesh: Stake-and-Slash
+
+The problem with sharing API keys in a pool is trust. How do you know a rogue node won't use your clean OpenAI key to process ToS-violating prompts, getting your account banned? 
+
+Tkngate solves this using an **Economic Game Theory Ledger**:
+
+1. **AES-256 Zero-Knowledge Payload**: When you donate an API key, it is encrypted locally. You never see the plaintext prompts passing through your node.
+2. **Pre-flight Moderation WAF**: Every prompt is scanned locally before being routed.
+3. **The Slash**: If a malicious node somehow bypasses the WAF and OpenAI flags the request, the HTTP response acts as a **Fraud Proof**. The malicious sender's public key is permanently blacklisted globally, and their stake in the mesh is slashed to zero.
+
+---
+
+## 🚀 Quick Start (DX Focused)
+
+Tkngate is a single binary with zero external dependencies (no Redis or Postgres required out of the box).
 
 ```bash
 git clone https://github.com/tkngate/tkngate.git
 cd tkngate
-cp tkngate.example.yaml tkngate.yaml   # edit with your keys
-export TKNGATE_MASTER_KEY="your-32-char-secret-key-here-!!"
-go run main.go serve
+
+# 1. Setup your config
+cp tkngate.example.yaml tkngate.yaml 
+
+# 2. Generate a secure Master Key (AES-256)
+./tkngate config generate-master-key
+export TKNGATE_MASTER_KEY="your-32-char-secret-key"
+
+# 3. Start the daemon
+./tkngate serve
 ```
 
-Your agents now point to `http://localhost:7477/openai/chat/completions` instead of `api.openai.com`.
+Your agents now point to `http://localhost:7477/openai/v1` instead of `api.openai.com`.
 
-## Features
+---
 
-### Universal API Router
-Route through **OpenAI, Anthropic, DeepSeek, Kimi, and Groq** from a single endpoint. If one provider goes down (HTTP 500/502/503), Tkngate automatically fails over to the next.
+## 🛠️ Enterprise Features
 
-### AI-WAF & DLP
-Block prompt injection attacks and automatically redact PII (credit cards, SSNs, API keys) before they reach the provider.
+- **Virtual Budgets (Virtual Keys):** Issue `tkngate-sk-...` keys to your agents with hard USD caps. If a loop goes rogue, the proxy instantly blocks traffic, saving your credit card.
+- **Semantic Caching:** Identical prompts are served from memory for `$0.00` with zero latency.
+- **Universal Fallback:** If OpenAI returns a `500` or `503`, Tkngate automatically transparently falls back to Anthropic or DeepSeek.
+- **Context Compressor:** Automatically strips comments and whitespace from code-heavy prompts, reducing token bills by up to 40%.
+- **Shadow Mode:** Silently mirror 10% of your production traffic to a cheaper provider (like DeepSeek) to evaluate responses without impacting your main flow latency.
 
-### Stake-and-Slash Reputation (Mesh)
-Protect donated API keys from abuse using cryptographic Fraud Proofs. Nodes that route malicious prompts bypassing the WAF are penalized via a Stake-and-Slash trust ledger and permanently blacklisted.
+---
 
-### Virtual Keys (Auth Layer)
-Generate secure `tkngate-sk-...` enterprise virtual keys for your teams. Each key acts as an isolated sandbox with hard budget caps, shielding your physical upstream keys.
-
-### Strict Rate Limiting (Token Bucket)
-Protect your budget and providers from autonomous agent "burst loops" with an ultra-low latency, in-memory Token Bucket rate limiter.
-
-### Budget Traffic Lights
-Real-time spend tracking with Green → Amber → Red zones. Set global limits, per-session caps, and automatic request blocking when budgets are exhausted.
-
-### Distributed Semantic Cache (Redis)
-Identical prompts are served from a distributed Redis cache, enabling horizontal scaling across multiple Tkngate proxy nodes. Save tokens and money globally across your fleet. Cache keys are computed from normalised `model + messages` hashes.
-
-###  Context Compressor
-Automatically compresses Go, Python, and JavaScript code blocks in prompts — stripping comments and whitespace to reduce token usage by up to 40%.
-
-###  P2P Token Mesh (DRR)
-The world's first BitTorrent-style token pool for LLM APIs. Donate spare API keys to the mesh, and get priority access to the network's capacity during outages. Protected by AES-256 zero-knowledge encryption.
-
-###  Shadow Mode
-Silently mirror a fraction of production traffic to an alternative provider (e.g., DeepSeek) to evaluate cost savings — with zero latency impact on the primary request.
-
-## Configuration
-
-See [`tkngate.example.yaml`](./tkngate.example.yaml) for the full reference.
-
-## Documentation
+## 📖 Documentation
 
 | Topic | Link |
 |-------|------|
@@ -78,31 +77,6 @@ See [`tkngate.example.yaml`](./tkngate.example.yaml) for the full reference.
 | DRR Token Mesh & Reputation | [docs/drr-mesh.md](./docs/drr-mesh.md) |
 | Enterprise Virtual Keys | [docs/virtual-keys.md](./docs/virtual-keys.md) |
 | Strict Rate Limiting | [docs/rate-limiting.md](./docs/rate-limiting.md) |
-| Zero-Knowledge Security | [docs/zero-knowledge-security.md](./docs/zero-knowledge-security.md) |
-| Shadow Mode | [docs/shadow-mode.md](./docs/shadow-mode.md) |
-
-## Architecture
-
-```
-Agent Request
-     │
-     ▼
-┌──────────────────────────────────────┐
-│            TKNGATE PROXY             │
-│                                      │
-│  Budget Guard → AI-WAF/DLP           │
-│       → Context Compressor           │
-│       → Semantic Cache               │
-│       → Auto-Retry (3x)             │
-│       → Universal Router (Failover)  │
-│       → Shadow Mode (async mirror)   │
-│       → Token Counter → Ledger       │
-└──────────────────────────────────────┘
-     │
-     ▼
-  OpenAI / Anthropic / DeepSeek / Kimi / Groq
-```
 
 ## License
-
 Apache 2.0
