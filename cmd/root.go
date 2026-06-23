@@ -53,13 +53,57 @@ func init() {
 				serveCmd.Run(serveCmd, []string{})
 				return
 			case "Manage Virtual Keys":
-				listCmd.Run(listCmd, []string{})
+				manageOpts := []string{"List Keys", "Issue New Key", "Revoke Key", "Back"}
+				action, _ := pterm.DefaultInteractiveSelect.WithDefaultText("Virtual Keys").WithOptions(manageOpts).Show()
+				fmt.Println()
+				switch action {
+				case "List Keys":
+					listCmd.Run(listCmd, []string{})
+				case "Issue New Key":
+					name, _ := pterm.DefaultInteractiveTextInput.Show("Enter name for the new key (e.g. Agent-1)")
+					if name != "" {
+						limitStr, _ := pterm.DefaultInteractiveTextInput.Show("Enter USD budget limit (e.g. 10.50)")
+						var limit float64 = 10.0
+						if limitStr != "" {
+							fmt.Sscanf(limitStr, "%f", &limit)
+						}
+						virtualKeyName = name
+						virtualKeyLimit = limit
+						generateCmd.Run(generateCmd, []string{})
+					}
+				case "Revoke Key":
+					name, _ := pterm.DefaultInteractiveTextInput.Show("Enter name of the key to revoke")
+					if name != "" {
+						virtualKeyName = name
+						revokeCmd.Run(revokeCmd, []string{})
+					}
+				}
 			case "Check Budget Status":
 				statusCmd.Run(statusCmd, []string{})
 			case "Configure Tkngate":
 				showCmd.Run(showCmd, []string{})
 			case "P2P Mesh Pool Status":
-				poolStatusCmd.Run(poolStatusCmd, []string{})
+				poolOpts := []string{"View Pool Status", "Donate API Key", "Back"}
+				poolAction, _ := pterm.DefaultInteractiveSelect.WithDefaultText("P2P Token Mesh").WithOptions(poolOpts).Show()
+				fmt.Println()
+				switch poolAction {
+				case "View Pool Status":
+					poolStatusCmd.RunE(poolStatusCmd, []string{})
+				case "Donate API Key":
+					provider, _ := pterm.DefaultInteractiveSelect.WithDefaultText("Select Provider").WithOptions([]string{"openai", "anthropic", "deepseek"}).Show()
+					
+					// poolKey will be prompted securely inside donateCmd if we leave it empty!
+					poolProvider = provider
+					poolKey = "" // reset it so the secure masked prompt triggers
+					poolLimit = 100000 // default limit
+					
+					limitStr, _ := pterm.DefaultInteractiveTextInput.Show("Enter TPM Limit for this key (e.g. 100000)")
+					if limitStr != "" {
+						fmt.Sscanf(limitStr, "%d", &poolLimit)
+					}
+					
+					donateCmd.RunE(donateCmd, []string{})
+				}
 			case "Exit":
 				os.Exit(0)
 			default:

@@ -1,17 +1,24 @@
 # Tkngate CLI Reference
 
-The `tkngate` command-line interface provides everything you need to operate the reverse proxy, manage budgets, and generate secure credentials.
+The `tkngate` command-line interface provides everything you need to operate the reverse proxy, manage budgets, and generate secure credentials. It features an interactive, loop-based menu system for continuous management.
 
-## 🚀 Core Commands
+## Core Commands
+
+### `tkngate` (Interactive Menu)
+Running the binary without arguments starts the continuous interactive dashboard.
+```bash
+tkngate
+```
+From here, you can start the server, check budget status, view mesh pool metrics, and manage keys without leaving the terminal.
 
 ### `tkngate serve`
-Starts the reverse proxy daemon and the telemetry API server.
+Starts the reverse proxy daemon and the telemetry API server directly.
 ```bash
 tkngate serve
 ```
-*Note: This command will fail immediately if `TKNGATE_MASTER_KEY` is not set in your environment.*
+*Note: If `TKNGATE_MASTER_KEY` is not set in your environment, the CLI will interactively guide you to generate one instead of crashing.*
 
-## 🔐 Config & Security
+## Config & Security
 
 ### `tkngate config generate-master-key`
 Generates a cryptographically secure 32-character master key. You must set this key in your environment to enable the zero-knowledge mesh encryption.
@@ -22,7 +29,7 @@ tkngate config generate-master-key
 # TKNGATE_MASTER_KEY="a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6"
 ```
 
-## 🔑 Virtual Key Management (v1.3.0+)
+## Virtual Key Management
 
 Virtual Keys (`tkngate-sk-...`) are what you distribute to your AI agents or downstream clients instead of your raw OpenAI/Anthropic keys.
 
@@ -50,7 +57,7 @@ Permanently deletes a Virtual Key and immediately blocks any further requests us
 tkngate auth revoke "Marketing_Agent"
 ```
 
-## 💸 Budget & Ledger
+## Budget & Ledger
 
 ### `tkngate budget reset`
 Wipes the entire SQLite transaction ledger and resets all consumed budgets to `$0.00`. Use this at the start of a new billing cycle.
@@ -58,11 +65,17 @@ Wipes the entire SQLite transaction ledger and resets all consumed budgets to `$
 tkngate budget reset
 ```
 
-## 🕸️ P2P Token Mesh
+## P2P Token Mesh
 
 ### `tkngate pool donate`
 Donates an API key to the decentralized DRR Token Mesh. The key is encrypted locally using your `TKNGATE_MASTER_KEY` before it is stored in the local SQLite ledger.
+
+To prevent shell history leakage, if you do not provide the `--key` flag, the CLI will prompt you with a secure masked input (`****`).
+
 ```bash
-tkngate pool donate "openai" "sk-proj-YOUR_EXTRA_KEY" 500000
+# Secure interactive mode
+tkngate pool donate "openai"
+
+# Or scriptable mode (Warning: may log in bash history)
+tkngate pool donate "openai" --key "sk-proj-YOUR_EXTRA_KEY"
 ```
-*Parameters: Provider Name, API Key, TPM Limit (Tokens Per Minute).*
