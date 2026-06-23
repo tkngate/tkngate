@@ -63,7 +63,7 @@ func TestReputationManager_RecordSuccess(t *testing.T) {
 	rep := GlobalReputation.GetOrCreate(nodeID)
 
 	GlobalReputation.RecordSuccess(nodeID)
-	
+
 	if rep.TotalRequests != 1 {
 		t.Errorf("expected 1 request, got %d", rep.TotalRequests)
 	}
@@ -125,14 +125,14 @@ func TestSubmitFraudProof(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SubmitFraudProof failed: %v", err)
 	}
-	
+
 	rep := GlobalReputation.GetOrCreate(nodeID)
 	if rep.TrustScore != 25.0 {
 		t.Errorf("expected trust to drop to 25.0, got %f", rep.TrustScore)
 	}
-	
+
 	SubmitFraudProof(proof) // Drop to 0
-	
+
 	if !GlobalReputation.IsBlacklisted(nodeID) {
 		t.Error("Node should be blacklisted after two fraud proofs")
 	}

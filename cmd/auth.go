@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/fatih/color"
+	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 
 	"tkngate/internal/auth"
@@ -26,35 +26,39 @@ var generateCmd = &cobra.Command{
 	Short: "Generate a new Virtual Key",
 	Run: func(cmd *cobra.Command, args []string) {
 		if virtualKeyName == "" {
-			color.Red("Error: --name is required")
+			pterm.Error.Println("--name is required")
 			os.Exit(1)
 		}
 
+		spinner, _ := pterm.DefaultSpinner.Start("Generating virtual key...")
 		if err := budget.InitLedger(); err != nil {
-			color.Red("Error initializing ledger: %v", err)
+			spinner.Fail("Error initializing ledger: ", err.Error())
 			os.Exit(1)
 		}
 
 		key, err := auth.GenerateVirtualKey()
 		if err != nil {
-			color.Red("Error generating key: %v", err)
+			spinner.Fail("Error generating key: ", err.Error())
 			os.Exit(1)
 		}
 
 		if err := budget.GlobalLedger.RegisterVirtualKey(key.Hash, virtualKeyName, virtualKeyLimit); err != nil {
-			color.Red("Error saving key to ledger: %v", err)
+			spinner.Fail("Error saving key to ledger: ", err.Error())
 			os.Exit(1)
 		}
+		spinner.Success("Virtual Key Generated Successfully")
 
 		fmt.Println()
-		color.Green("=== Virtual Key Generated Successfully ===")
-		fmt.Printf("Name:   %s\n", virtualKeyName)
-		fmt.Printf("Limit:  $%.2f\n", virtualKeyLimit)
-		fmt.Printf("Key:    %s\n\n", color.CyanString(key.Plaintext))
-		
-		color.Yellow("IMPORTANT: Store this key safely. You will not be able to see it again!")
-		color.White("Use this key as a Bearer token in your Authorization header.")
-		fmt.Println()
+
+		boxContent := pterm.Sprintf("Name:   %s\nLimit:  $%.2f\nKey:    %s",
+			virtualKeyName,
+			virtualKeyLimit,
+			pterm.LightCyan(key.Plaintext))
+
+		pterm.DefaultBox.WithTitle("New Virtual Key").WithRightPadding(2).WithLeftPadding(2).Println(boxContent)
+
+		pterm.Warning.Println("Store this key safely. You will not be able to see it again!")
+		pterm.Info.Println("Use this key as a Bearer token in your Authorization header.")
 	},
 }
 
@@ -62,44 +66,54 @@ var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all active Virtual Keys",
 	Run: func(cmd *cobra.Command, args []string) {
+		spinner, _ := pterm.DefaultSpinner.Start("Fetching virtual keys...")
 		if err := budget.InitLedger(); err != nil {
-			color.Red("Error initializing ledger: %v", err)
+			spinner.Fail("Error initializing ledger: ", err.Error())
 			os.Exit(1)
 		}
 
 		keys, err := budget.GlobalLedger.GetVirtualKeys()
 		if err != nil {
-			color.Red("Error fetching keys: %v", err)
+			spinner.Fail("Error fetching keys: ", err.Error())
 			os.Exit(1)
 		}
+		spinner.Stop()
 
 		fmt.Println()
-		color.HiMagenta("  ✦ ACTIVE VIRTUAL KEYS ✦")
+		pterm.DefaultHeader.WithFullWidth().WithBackgroundStyle(pterm.NewStyle(pterm.BgMagenta)).Println("ACTIVE VIRTUAL KEYS")
 		fmt.Println()
+
 		if len(keys) == 0 {
-			color.White("  No active keys found. Use 'tkngate auth issue' to create one.")
-			fmt.Println()
+			pterm.Info.Println("No active keys found. Use 'tkngate auth issue' to create one.")
 			return
 		}
-		
-		fmt.Printf("  %-25s %-20s %-20s %s\n", "NAME", "CONSUMED", "ALLOCATED", "CREATED")
-		fmt.Println(color.HiBlackString("  ────────────────────────────────────────────────────────────────────────────────────────"))
+
+		tableData := pterm.TableData{
+			{"NAME", "CONSUMED", "ALLOCATED", "CREATED"},
+		}
+
 		for _, k := range keys {
 			consumedStr := fmt.Sprintf("$%.2f", k.ConsumedBudget)
 			allocatedStr := fmt.Sprintf("$%.2f", k.AllocatedBudget)
-			
+
 			// Highlight if consumed is close to allocated
 			if k.ConsumedBudget >= k.AllocatedBudget {
-				consumedStr = color.RedString(consumedStr)
+				consumedStr = pterm.LightRed(consumedStr)
 			} else if k.ConsumedBudget >= k.AllocatedBudget*0.75 {
-				consumedStr = color.YellowString(consumedStr)
+				consumedStr = pterm.LightYellow(consumedStr)
 			} else {
-				consumedStr = color.GreenString(consumedStr)
+				consumedStr = pterm.LightGreen(consumedStr)
 			}
-			
-			fmt.Printf("  %-25s %-20s %-20s %s\n", color.CyanString(k.Name), consumedStr, allocatedStr, color.HiBlackString(k.CreatedAt))
+
+			tableData = append(tableData, []string{
+				pterm.LightCyan(k.Name),
+				consumedStr,
+				allocatedStr,
+				pterm.Gray(k.CreatedAt),
+			})
 		}
-		fmt.Println(color.HiBlackString("  ────────────────────────────────────────────────────────────────────────────────────────"))
+
+		pterm.DefaultTable.WithHasHeader().WithHeaderRowSeparator("-").WithData(tableData).Render()
 		fmt.Println()
 	},
 }
@@ -109,26 +123,27 @@ var revokeCmd = &cobra.Command{
 	Short: "Revoke a Virtual Key by name",
 	Run: func(cmd *cobra.Command, args []string) {
 		if virtualKeyName == "" {
-			color.Red("Error: --name is required")
+			pterm.Error.Println("--name is required")
 			os.Exit(1)
 		}
 
+		spinner, _ := pterm.DefaultSpinner.Start("Revoking virtual key...")
 		if err := budget.InitLedger(); err != nil {
-			color.Red("Error initializing ledger: %v", err)
+			spinner.Fail("Error initializing ledger: ", err.Error())
 			os.Exit(1)
 		}
 
 		err := budget.GlobalLedger.RevokeVirtualKey(virtualKeyName)
 		if err != nil {
 			if err.Error() == "sql: no rows in result set" {
-				color.Red("Error: Virtual Key '%s' not found", virtualKeyName)
+				spinner.Fail(fmt.Sprintf("Virtual Key '%s' not found", virtualKeyName))
 			} else {
-				color.Red("Error revoking key: %v", err)
+				spinner.Fail("Error revoking key: ", err.Error())
 			}
 			os.Exit(1)
 		}
 
-		color.Green("Successfully revoked Virtual Key: %s", virtualKeyName)
+		spinner.Success(fmt.Sprintf("Successfully revoked Virtual Key: %s", virtualKeyName))
 	},
 }
 
@@ -140,6 +155,6 @@ func init() {
 
 	generateCmd.Flags().StringVar(&virtualKeyName, "name", "", "Name of the key (e.g. 'agent-1')")
 	generateCmd.Flags().Float64Var(&virtualKeyLimit, "limit", 10.0, "Budget limit in USD for this key")
-	
+
 	revokeCmd.Flags().StringVar(&virtualKeyName, "name", "", "Name of the key to revoke")
 }

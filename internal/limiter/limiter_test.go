@@ -41,7 +41,7 @@ func TestRateLimiter(t *testing.T) {
 	if !GlobalManager.Allow(sessionID) {
 		t.Errorf("Expected Request 4 to be allowed after 1s sleep")
 	}
-	
+
 	// Request 5: blocked (bucket empty again)
 	if GlobalManager.Allow(sessionID) {
 		t.Errorf("Expected Request 5 to be blocked")

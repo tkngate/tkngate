@@ -7,12 +7,12 @@ import (
 func TestCounter_Count_NaturalLanguage(t *testing.T) {
 	c, _ := NewCounter()
 	text := "This is a simple natural language test sentence with no special characters."
-	
+
 	count := c.Count(text, "gpt-4")
 	if count <= 1 {
 		t.Errorf("Expected count > 1, got %d", count)
 	}
-	
+
 	// Length is ~75 chars, expected ~18 tokens
 	if count < 10 || count > 25 {
 		t.Errorf("Count %d is wildly off for natural language", count)
@@ -22,9 +22,9 @@ func TestCounter_Count_NaturalLanguage(t *testing.T) {
 func TestCounter_Count_Code(t *testing.T) {
 	c, _ := NewCounter()
 	text := `{"key": "value", "items": [1, 2, 3], "nested": {"a": "b"}}`
-	
+
 	count := c.Count(text, "gpt-4")
-	
+
 	// Should be treated as code (~3.2 chars per token)
 	if count < 15 || count > 25 {
 		t.Errorf("Count %d is off for JSON payload", count)
@@ -39,8 +39,8 @@ func TestEstimateCost(t *testing.T) {
 		output       int
 		expectedCost float64
 	}{
-		{"openai", "gpt-6o", 1000, 1000, 0.020},        // 0.005 + 0.015
-		{"anthropic", "claude-4.5-sonnet", 1000, 1000, 0.018}, // 0.003 + 0.015
+		{"openai", "gpt-6o", 1000, 1000, 0.020},                // 0.005 + 0.015
+		{"anthropic", "claude-4.5-sonnet", 1000, 1000, 0.018},  // 0.003 + 0.015
 		{"deepseek", "deepseek-chat-v3", 10000, 10000, 0.0042}, // 0.0014 + 0.0028
 	}
 

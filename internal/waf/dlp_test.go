@@ -65,7 +65,7 @@ func TestRedactPII(t *testing.T) {
 			if string(sanitized) != tt.expected {
 				t.Errorf("RedactPII() = %v, want %v", string(sanitized), tt.expected)
 			}
-			
+
 			// Ensure the original payload is not mutated directly, though our simple test replaces it.
 			// The original string is immutable anyway.
 		})
@@ -75,7 +75,7 @@ func TestRedactPII(t *testing.T) {
 func TestRedactPII_Multiple(t *testing.T) {
 	payload := "Email: test@example.com, Phone: 555-123-4567, Key: sk-abcdefghijklmnopqrstuvwxyz"
 	sanitized := string(RedactPII([]byte(payload)))
-	
+
 	if !strings.Contains(sanitized, "[REDACTED_EMAIL]") {
 		t.Error("Missing REDACTED_EMAIL")
 	}

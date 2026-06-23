@@ -12,7 +12,6 @@ import (
 
 var masterKey []byte
 
-
 func InitCrypto() error {
 	keyStr := os.Getenv("TKNGATE_MASTER_KEY")
 	if keyStr == "" {

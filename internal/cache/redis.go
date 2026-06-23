@@ -24,9 +24,9 @@ func NewRedisCache(uri string, ttlSeconds int) *RedisCache {
 			Addr: "localhost:6379",
 		}
 	}
-	
+
 	client := redis.NewClient(opt)
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := client.Ping(ctx).Err(); err != nil {
@@ -42,7 +42,7 @@ func NewRedisCache(uri string, ttlSeconds int) *RedisCache {
 func (r *RedisCache) Get(payload []byte) *CacheEntry {
 	key := computeKey(payload)
 	ctx := context.Background()
-	
+
 	val, err := r.client.Get(ctx, "tkngate:cache:"+key).Result()
 	if err == redis.Nil {
 		r.client.Incr(ctx, "tkngate:stats:misses")
@@ -92,25 +92,25 @@ func (r *RedisCache) Put(payload []byte, responseBody []byte, statusCode int, es
 
 func (r *RedisCache) Stats() (hits int64, misses int64, size int, savingsUSD float64) {
 	ctx := context.Background()
-	
+
 	// Fetch hits
 	if h, err := r.client.Get(ctx, "tkngate:stats:hits").Result(); err == nil {
 		hits, _ = strconv.ParseInt(h, 10, 64)
 	}
-	
+
 	// Fetch misses
 	if m, err := r.client.Get(ctx, "tkngate:stats:misses").Result(); err == nil {
 		misses, _ = strconv.ParseInt(m, 10, 64)
 	}
-	
+
 	// Fetch savings
 	if s, err := r.client.Get(ctx, "tkngate:stats:savings").Result(); err == nil {
 		savingsUSD, _ = strconv.ParseFloat(s, 64)
 	}
-	
+
 	// For size, we can fetch DBSIZE or just scan keys starting with tkngate:cache:
 	// For performance, we'll just use DBSIZE as a global approximation, or 0.
 	size = int(r.client.DBSize(ctx).Val())
-	
+
 	return hits, misses, size, savingsUSD
 }

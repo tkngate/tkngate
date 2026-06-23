@@ -7,6 +7,7 @@ import (
 	"tkngate/internal/validator"
 
 	"github.com/google/uuid"
+	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 )
 
@@ -26,26 +27,37 @@ var donateCmd = &cobra.Command{
 	Short: "Donate an API key to the local pool",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if poolKey == "" {
-			return fmt.Errorf("must provide --key")
+			// Prompt securely with masked input to prevent shell history leakage
+			key, _ := pterm.DefaultInteractiveTextInput.WithMask("*").Show("Enter the API key to donate (input is hidden)")
+			if key == "" {
+				return fmt.Errorf("must provide an API key via prompt or --key flag")
+			}
+			poolKey = key
 		}
 
-		fmt.Printf("Validating %s API key...\n", poolProvider)
+		spinner, _ := pterm.DefaultSpinner.Start(fmt.Sprintf("Validating %s API key...", poolProvider))
 		if err := validator.ValidateKey(poolProvider, poolKey); err != nil {
-			return fmt.Errorf("\n❌ Validation Failed: %v\nPlease provide a real, active API key.", err)
+			spinner.Fail(fmt.Sprintf("Validation Failed: %v\nPlease provide a real, active API key.", err))
+			return nil // Return nil since we already printed the error beautifully
 		}
-		fmt.Printf("✅ Key is valid!\n")
+		spinner.Success("Key is valid!")
 
-		if err := crypto.InitCrypto(); err != nil {
-			return fmt.Errorf("crypto init failed: %v", err)
+		if err := ensureCryptoInitialized(); err != nil {
+			pterm.Error.Println(fmt.Sprintf("crypto init failed: %v", err))
+			return nil
 		}
+
+		spinner, _ = pterm.DefaultSpinner.Start("Encrypting key and saving to pool...")
 
 		if err := budget.InitLedger(); err != nil {
-			return fmt.Errorf("ledger init failed: %v", err)
+			spinner.Fail(fmt.Sprintf("ledger init failed: %v", err))
+			return nil
 		}
 
 		encryptedKey, err := crypto.Encrypt(poolKey)
 		if err != nil {
-			return fmt.Errorf("encryption failed: %v", err)
+			spinner.Fail(fmt.Sprintf("encryption failed: %v", err))
+			return nil
 		}
 
 		node := budget.PoolNode{
@@ -57,11 +69,17 @@ var donateCmd = &cobra.Command{
 		}
 
 		if err := budget.GlobalLedger.AddPoolNode(node); err != nil {
-			return fmt.Errorf("failed to save node: %v", err)
+			spinner.Fail(fmt.Sprintf("failed to save node: %v", err))
+			return nil
 		}
+		spinner.Success(fmt.Sprintf("Successfully donated %s key to the local DRR pool!", poolProvider))
 
-		fmt.Printf("Successfully donated %s key to the local DRR pool!\n", poolProvider)
-		fmt.Printf("Encrypted Node ID: %s\n", node.NodeID)
+		fmt.Println()
+		pterm.DefaultBox.WithTitle("Donation Successful").WithRightPadding(2).WithLeftPadding(2).Printf("Provider: %s\nNode ID:  %s\nTPM Quota: %d\n",
+			pterm.LightMagenta(poolProvider),
+			pterm.LightCyan(node.NodeID),
+			poolLimit)
+		fmt.Println()
 		return nil
 	},
 }
@@ -70,20 +88,43 @@ var poolStatusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show status of the local donation pool",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		spinner, _ := pterm.DefaultSpinner.Start("Fetching pool nodes...")
 		if err := budget.InitLedger(); err != nil {
-			return fmt.Errorf("ledger init failed: %v", err)
+			spinner.Fail(fmt.Sprintf("ledger init failed: %v", err))
+			return nil
 		}
 
 		nodes, err := budget.GlobalLedger.GetPoolNodes(poolProvider)
 		if err != nil {
-			return err
+			spinner.Fail(fmt.Sprintf("Failed to get pool nodes: %v", err))
+			return nil
+		}
+		spinner.Stop()
+
+		fmt.Println()
+		pterm.DefaultHeader.WithFullWidth().WithBackgroundStyle(pterm.NewStyle(pterm.BgBlue)).Printf("Token Pool Status [%s]\n", poolProvider)
+		fmt.Println()
+
+		pterm.Info.Printf("Total Donated Keys: %d\n\n", len(nodes))
+
+		if len(nodes) == 0 {
+			pterm.Warning.Println("No nodes found for this provider.")
+			return nil
 		}
 
-		fmt.Printf("Token Pool Status [%s]\n", poolProvider)
-		fmt.Printf("Total Donated Keys: %d\n", len(nodes))
-		for _, node := range nodes {
-			fmt.Printf("- Node %s: Quota %d TPM\n", node.NodeID, node.MeasuredTpmLimit)
+		tableData := pterm.TableData{
+			{"NODE ID", "QUOTA (TPM)"},
 		}
+
+		for _, node := range nodes {
+			tableData = append(tableData, []string{
+				pterm.LightCyan(node.NodeID),
+				pterm.LightYellow(fmt.Sprintf("%d", node.MeasuredTpmLimit)),
+			})
+		}
+
+		pterm.DefaultTable.WithHasHeader().WithHeaderRowSeparator("-").WithData(tableData).Render()
+		fmt.Println()
 		return nil
 	},
 }
@@ -92,7 +133,7 @@ func init() {
 	donateCmd.Flags().StringVar(&poolProvider, "provider", "openai", "Provider (e.g. openai, anthropic)")
 	donateCmd.Flags().StringVar(&poolKey, "key", "", "The actual API key to encrypt and donate")
 	donateCmd.Flags().IntVar(&poolLimit, "limit", 100000, "TPM token limit for this key")
-	
+
 	poolStatusCmd.Flags().StringVar(&poolProvider, "provider", "openai", "Provider (e.g. openai, anthropic)")
 
 	poolCmd.AddCommand(donateCmd)

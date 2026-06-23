@@ -73,13 +73,13 @@ type RateLimitConfig struct {
 }
 
 type MeshConfig struct {
-	ReputationEnabled    bool    `mapstructure:"reputation_enabled"`
-	PreflightModeration  bool    `mapstructure:"preflight_moderation"`
-	ModerationAPIKey     string  `mapstructure:"moderation_api_key"`
-	InitialTrustScore    float64 `mapstructure:"initial_trust_score"`
-	SlashPenalty         float64 `mapstructure:"slash_penalty"`
-	BlacklistThreshold   float64 `mapstructure:"blacklist_threshold"`
-	PremiumTrustMinimum  float64 `mapstructure:"premium_trust_minimum"`
+	ReputationEnabled   bool    `mapstructure:"reputation_enabled"`
+	PreflightModeration bool    `mapstructure:"preflight_moderation"`
+	ModerationAPIKey    string  `mapstructure:"moderation_api_key"`
+	InitialTrustScore   float64 `mapstructure:"initial_trust_score"`
+	SlashPenalty        float64 `mapstructure:"slash_penalty"`
+	BlacklistThreshold  float64 `mapstructure:"blacklist_threshold"`
+	PremiumTrustMinimum float64 `mapstructure:"premium_trust_minimum"`
 }
 
 var Cfg Config

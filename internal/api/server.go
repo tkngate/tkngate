@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 
 	"tkngate/internal/budget"
@@ -13,15 +15,24 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
+// safePoolNode is a sanitized view of PoolNode that strips the encrypted key ciphertext.
+// This prevents the AES-256-GCM ciphertext from ever being exposed over the network.
+type safePoolNode struct {
+	NodeID               string `json:"node_id"`
+	ProviderType         string `json:"provider_type"`
+	MeasuredTpmLimit     int    `json:"measured_tpm_limit"`
+	RemainingTokensQuota int    `json:"remaining_tokens_quota"`
+}
+
 // StartTelemetryServer starts the local REST API for telemetry data.
 func StartTelemetryServer(host string, port int) error {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/api/v1/overview", withCORS(handleOverview))
-	mux.HandleFunc("/api/v1/sessions", withCORS(handleSessions))
-	mux.HandleFunc("/api/v1/pool", withCORS(handlePool))
-	mux.HandleFunc("/api/v1/mesh/stats", withCORS(handleMeshStats))
-	mux.HandleFunc("/api/v1/vkeys", withCORS(handleVirtualKeys))
+	mux.HandleFunc("/api/v1/overview", withAuth(withCORS(handleOverview)))
+	mux.HandleFunc("/api/v1/sessions", withAuth(withCORS(handleSessions)))
+	mux.HandleFunc("/api/v1/pool", withAuth(withCORS(handlePool)))
+	mux.HandleFunc("/api/v1/mesh/stats", withAuth(withCORS(handleMeshStats)))
+	mux.HandleFunc("/api/v1/vkeys", withAuth(withCORS(handleVirtualKeys)))
 	mux.Handle("/metrics", promhttp.Handler())
 
 	addr := fmt.Sprintf("%s:%d", host, port)
@@ -35,12 +46,44 @@ func StartTelemetryServer(host string, port int) error {
 	return server.ListenAndServe()
 }
 
-// withCORS adds open CORS headers so local dashboards can fetch the data.
+// withAuth enforces bearer-token authentication using TKNGATE_MASTER_KEY.
+// All telemetry endpoints require authentication to prevent unauthorized data access.
+func withAuth(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		masterKey := os.Getenv("TKNGATE_MASTER_KEY")
+		if masterKey == "" {
+			// If no master key is set, allow access (dev mode / local-only)
+			next(w, r)
+			return
+		}
+
+		authHeader := r.Header.Get("Authorization")
+		if !strings.HasPrefix(authHeader, "Bearer ") {
+			http.Error(w, `{"error":"Authorization header required. Use: Bearer <TKNGATE_MASTER_KEY>"}`, http.StatusUnauthorized)
+			return
+		}
+
+		token := strings.TrimPrefix(authHeader, "Bearer ")
+		if token != masterKey {
+			logging.Logger.Warn("Unauthorized telemetry API access attempt")
+			http.Error(w, `{"error":"Invalid bearer token"}`, http.StatusForbidden)
+			return
+		}
+
+		next(w, r)
+	}
+}
+
+// withCORS adds CORS headers restricted to localhost origins only.
 func withCORS(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+		origin := r.Header.Get("Origin")
+		// Only allow localhost origins (any port)
+		if strings.HasPrefix(origin, "http://localhost") || strings.HasPrefix(origin, "http://127.0.0.1") {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+		}
 		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)
@@ -59,7 +102,7 @@ func handleOverview(w http.ResponseWriter, r *http.Request) {
 
 	totalSpent, _ := budget.GlobalLedger.GetTotalSpend()
 	txCount, _ := budget.GlobalLedger.GetTransactionCount()
-	
+
 	status, _ := budget.CheckBudget()
 
 	var cacheHits, cacheMisses int64
@@ -120,10 +163,22 @@ func handlePool(w http.ResponseWriter, r *http.Request) {
 	allNodes = append(allNodes, openaiNodes...)
 	allNodes = append(allNodes, anthropicNodes...)
 
+	// SECURITY: Strip BlindedKeyHash (AES ciphertext) before sending over the wire.
+	// Only expose safe metadata fields — never the encrypted key material.
+	safeNodes := make([]safePoolNode, 0, len(allNodes))
+	for _, n := range allNodes {
+		safeNodes = append(safeNodes, safePoolNode{
+			NodeID:               n.NodeID,
+			ProviderType:         n.ProviderType,
+			MeasuredTpmLimit:     n.MeasuredTpmLimit,
+			RemainingTokensQuota: n.RemainingTokensQuota,
+		})
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"nodes":      allNodes,
-		"total_keys": len(allNodes),
+		"nodes":      safeNodes,
+		"total_keys": len(safeNodes),
 	})
 }
 
@@ -135,7 +190,7 @@ func handleMeshStats(w http.ResponseWriter, r *http.Request) {
 
 	providers := []string{"openai", "anthropic", "deepseek", "kimi", "groq"}
 	var allNodes []budget.PoolNode
-	
+
 	for _, p := range providers {
 		nodes, _ := budget.GlobalLedger.GetPoolNodes(p)
 		allNodes = append(allNodes, nodes...)

@@ -77,12 +77,12 @@ func (d *DRREngine) GetNextKey(provider string, sessionID string, estimatedToken
 		if err == nil {
 			// Decrement quota from the pool key
 			budget.GlobalLedger.DecrementPoolQuota(node.NodeID, estimatedTokens)
-			
+
 			// Increment consumption for the free-rider session
 			if sessionID != "" {
 				d.sessionUsage[sessionID] += estimatedTokens
 			}
-			
+
 			return plaintextKey, nil
 		}
 		idx = d.currentIndex[provider]

@@ -17,7 +17,7 @@ type ModerationRequest struct {
 
 type ModerationResponse struct {
 	Results []struct {
-		Flagged bool `json:"flagged"`
+		Flagged    bool            `json:"flagged"`
 		Categories map[string]bool `json:"categories"`
 	} `json:"results"`
 }

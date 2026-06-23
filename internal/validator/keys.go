@@ -17,8 +17,8 @@ func ValidateKey(provider, key string) error {
 		return validateOpenAICompatible(client, key, "https://api.openai.com/v1/models", "OpenAI")
 
 	case "anthropic":
-		// Anthropic does not have a widely used /models GET endpoint, 
-		// but checking /v1/messages with GET will yield a 405 Method Not Allowed 
+		// Anthropic does not have a widely used /models GET endpoint,
+		// but checking /v1/messages with GET will yield a 405 Method Not Allowed
 		// if the key is valid, and 401 Unauthorized if the key is fake.
 		req, err := http.NewRequest("GET", "https://api.anthropic.com/v1/messages", nil)
 		if err != nil {

@@ -42,9 +42,9 @@ type PoolNode struct {
 
 // SessionState represents the persistent state of an autonomous agent session
 type SessionState struct {
-	SessionID         string     `json:"session_id"`
-	AllocatedBudget   float64    `json:"allocated_budget_usd"`
-	ConsumedBudget    float64    `json:"consumed_budget_usd"`
-	CurrentState      BudgetZone `json:"current_state"`
-	CreatedAt         time.Time  `json:"created_at"`
+	SessionID       string     `json:"session_id"`
+	AllocatedBudget float64    `json:"allocated_budget_usd"`
+	ConsumedBudget  float64    `json:"consumed_budget_usd"`
+	CurrentState    BudgetZone `json:"current_state"`
+	CreatedAt       time.Time  `json:"created_at"`
 }

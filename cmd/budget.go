@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"tkngate/internal/budget"
 
+	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 )
 
@@ -19,16 +20,22 @@ var statusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Shows current spend vs. limits for each provider",
 	Run: func(cmd *cobra.Command, args []string) {
+		spinner, _ := pterm.DefaultSpinner.Start("Fetching budget data...")
 		if err := budget.InitLedger(); err != nil {
-			fmt.Println("Failed to open ledger:", err)
+			spinner.Fail("Failed to open ledger: ", err.Error())
 			return
 		}
 		spent, err := budget.GlobalLedger.GetTotalSpend()
 		if err != nil {
-			fmt.Println("Failed to get spend:", err)
+			spinner.Fail("Failed to get spend: ", err.Error())
 			return
 		}
-		fmt.Printf("💰 Total API Spend: $%.5f\n", spent)
+		spinner.Stop()
+
+		fmt.Println()
+		boxContent := pterm.Sprintf("Total API Spend: %s", pterm.LightYellow(fmt.Sprintf("$%.5f", spent)))
+		pterm.DefaultBox.WithTitle("Budget Ledger").WithRightPadding(2).WithLeftPadding(2).Println(boxContent)
+		fmt.Println()
 	},
 }
 
@@ -36,15 +43,16 @@ var resetCmd = &cobra.Command{
 	Use:   "reset",
 	Short: "Manually resets the budget ledger",
 	Run: func(cmd *cobra.Command, args []string) {
+		spinner, _ := pterm.DefaultSpinner.Start("Resetting budget ledger...")
 		if err := budget.InitLedger(); err != nil {
-			fmt.Println("Failed to open ledger:", err)
+			spinner.Fail("Failed to open ledger: ", err.Error())
 			return
 		}
 		if err := budget.GlobalLedger.Reset(); err != nil {
-			fmt.Println("Failed to reset ledger:", err)
+			spinner.Fail("Failed to reset ledger: ", err.Error())
 			return
 		}
-		fmt.Println("🗑️ Budget ledger reset successfully.")
+		spinner.Success("Budget ledger reset successfully.")
 	},
 }
 

@@ -25,9 +25,9 @@ type streamingTransport struct {
 
 // streamingResponseWriter wraps the response body to intercept SSE chunks for real-time token counting.
 type streamingResponseBody struct {
-	original    io.ReadCloser
-	scanner     *bufio.Scanner
-	counter     *tokenizer.Counter
+	original       io.ReadCloser
+	scanner        *bufio.Scanner
+	counter        *tokenizer.Counter
 	model          string
 	provider       string
 	sessionID      string

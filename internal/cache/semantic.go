@@ -29,13 +29,13 @@ type Cache interface {
 // InMemoryCache is a thread-safe in-memory LRU cache keyed by a SHA-256
 // hash of the normalised request payload (model + messages).
 type InMemoryCache struct {
-	mu       sync.RWMutex
-	entries  map[string]*CacheEntry
-	maxSize  int
-	ttl      time.Duration
-	hits     int64
-	misses   int64
-	savings  float64 // estimated USD saved
+	mu      sync.RWMutex
+	entries map[string]*CacheEntry
+	maxSize int
+	ttl     time.Duration
+	hits    int64
+	misses  int64
+	savings float64 // estimated USD saved
 }
 
 // GlobalCache is the singleton cache instance initialised at boot.

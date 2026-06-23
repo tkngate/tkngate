@@ -60,7 +60,7 @@ func CheckSessionBudget(sessionID string) (BudgetStatus, error) {
 	if limit == 0 {
 		limit = 5.0 // default fallback
 	}
-	
+
 	if err := GlobalLedger.EnsureSession(sessionID, limit); err != nil {
 		return BudgetStatus{}, err
 	}
@@ -150,4 +150,3 @@ func CheckVirtualKeyBudget(keyHash string) (BudgetStatus, error) {
 
 	return status, nil
 }
-

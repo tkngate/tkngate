@@ -75,7 +75,7 @@ func InitLedger() error {
 	if _, err := db.Exec(query); err != nil {
 		return err
 	}
-	
+
 	// Add session_id to existing table if migrating from v0.0.1
 	db.Exec(`ALTER TABLE transactions ADD COLUMN session_id TEXT DEFAULT ''`)
 
@@ -94,7 +94,7 @@ func (l *Ledger) RecordTransaction(tx Transaction) error {
 	if err != nil {
 		return err
 	}
-	
+
 	if tx.SessionID != "" {
 		_, err = l.db.Exec(`UPDATE tkngate_sessions SET consumed_budget_usd = consumed_budget_usd + ? WHERE session_id = ?`, tx.EstimatedCostUSD, tx.SessionID)
 	}
@@ -138,7 +138,7 @@ func (l *Ledger) GetSessionSpend(sessionID string) (float64, error) {
 func (l *Ledger) EnsureSession(sessionID string, allocatedBudget float64) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	
+
 	_, err := l.db.Exec(`INSERT OR IGNORE INTO tkngate_sessions (session_id, allocated_budget_usd) VALUES (?, ?)`, sessionID, allocatedBudget)
 	return err
 }
@@ -315,4 +315,3 @@ func InitMemoryLedger() error {
 	GlobalLedger = &Ledger{db: db}
 	return nil
 }
-

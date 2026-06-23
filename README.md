@@ -24,7 +24,7 @@ If you run parallelized agents, you will quickly hit OpenAI's rate limits (`429 
 
 ---
 
-## 🕸️ The Mesh: Stake-and-Slash
+##  The Mesh: Stake-and-Slash
 
 The problem with sharing API keys in a pool is trust. How do you know a rogue node won't use your clean OpenAI key to process ToS-violating prompts, getting your account banned? 
 
@@ -36,7 +36,7 @@ Tkngate solves this using an **Economic Game Theory Ledger**:
 
 ---
 
-## 🚀 Quick Start (DX Focused)
+##  Quick Start (DX Focused)
 
 Tkngate is a single binary with zero external dependencies (no Redis or Postgres required out of the box).
 
@@ -44,14 +44,17 @@ Tkngate is a single binary with zero external dependencies (no Redis or Postgres
 git clone https://github.com/tkngate/tkngate.git
 cd tkngate
 
-# 1. Setup your config
+# 1. Build the binary
+go build -o tkngate
+
+# 2. Setup your config
 cp tkngate.example.yaml tkngate.yaml 
 
-# 2. Generate a secure Master Key (AES-256)
+# 3. Generate a secure Master Key (AES-256)
 ./tkngate config generate-master-key
 export TKNGATE_MASTER_KEY="your-32-char-secret-key"
 
-# 3. Start the daemon
+# 4. Start the daemon
 ./tkngate serve
 ```
 
@@ -59,7 +62,7 @@ Your agents now point to `http://localhost:7477/openai/v1` instead of `api.opena
 
 ---
 
-## 🛠️ Enterprise Features
+##  Enterprise Features
 
 - **Virtual Budgets (Virtual Keys):** Issue `tkngate-sk-...` keys to your agents with hard USD caps. If a loop goes rogue, the proxy instantly blocks traffic, saving your credit card.
 - **Semantic Caching:** Identical prompts are served from memory for `$0.00` with zero latency.

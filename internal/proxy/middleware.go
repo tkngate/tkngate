@@ -53,10 +53,10 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	var authenticatedKeyHash string
 	var sessionID string
 	sessionZone := budget.ZoneGreen
-	
+
 	if strings.HasPrefix(authHeader, "Bearer tkngate-sk-") {
 		virtualKey := strings.TrimPrefix(authHeader, "Bearer ")
-		
+
 		keys, err := budget.GlobalLedger.GetVirtualKeys()
 		if err == nil {
 			for _, k := range keys {
@@ -137,7 +137,7 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		}
 
 		reqModel = extractModel(inputBody)
-		
+
 		// Model Downgrade in Amber Zone
 		if sessionZone == budget.ZoneAmber {
 			fallback := config.Cfg.Budget.FallbackModel
@@ -148,7 +148,7 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 				logging.Logger.Info("Session in Amber zone, downgrading model", "from", reqModel, "to", fallback, "session", sessionID)
 				inputBody = replaceModel(inputBody, fallback)
 				reqModel = fallback
-				
+
 				// Update req.Body and ContentLength to the new modified body
 				req.Body = io.NopCloser(bytes.NewBuffer(inputBody))
 				req.ContentLength = int64(len(inputBody))
@@ -160,7 +160,7 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 			inTokens := t.Counter.Count(string(inputBody), reqModel)
 			if inTokens > config.Cfg.Compressor.SoftTokenLimit {
 				logging.Logger.Info("Payload exceeds soft limit, running context compressor", "tokens", inTokens, "limit", config.Cfg.Compressor.SoftTokenLimit)
-				
+
 				compressedBody := compressPayload(inputBody)
 				if len(compressedBody) < len(inputBody) {
 					logging.Logger.Info("Context compression successful", "original_bytes", len(inputBody), "new_bytes", len(compressedBody))
@@ -251,13 +251,13 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 			if fallbackProvider == "" {
 				fallbackProvider = "deepseek" // Default fallback to deepseek if not configured
 			}
-			
+
 			if provider != fallbackProvider {
 				logging.Logger.Warn("Intercepted severe upstream outage. Engaging Universal API Router Fallback...", "from", provider, "to", fallbackProvider, "status", res.StatusCode)
-				
+
 				// 1. Swap Provider for the next loop iteration (so DRR grabs the new provider's key)
 				provider = fallbackProvider
-				
+
 				// 2. Rewrite HTTP Destination and JSON payload model
 				switch provider {
 				case "anthropic":
@@ -292,7 +292,7 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 					req.URL.Path = "/openai/v1/chat/completions"
 					inputBody = replaceModel(inputBody, "llama3-8b-8192")
 				}
-				
+
 				// Drain failing response
 				if res.Body != nil {
 					io.Copy(io.Discard, res.Body)
@@ -514,9 +514,9 @@ func compressPayload(payload []byte) []byte {
 		if !ok {
 			continue
 		}
-		
+
 		content, ok := msgMap["content"].(string)
-		if ok && len(content) > 100 { 
+		if ok && len(content) > 100 {
 			compressed := compressor.Compress(content)
 			if len(compressed) < len(content) {
 				msgMap["content"] = compressed

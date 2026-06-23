@@ -1,10 +1,10 @@
 package budget
 
 import (
+	_ "modernc.org/sqlite"
 	"testing"
 	"tkngate/internal/config"
 	"tkngate/internal/logging"
-	_ "modernc.org/sqlite"
 )
 
 // MockLedger implements Ledger interface just for testing guard logic.
@@ -45,11 +45,11 @@ func TestCheckBudget_AmberAndRed(t *testing.T) {
 
 	// Log a transaction of $75 to push it to Amber
 	err := GlobalLedger.RecordTransaction(Transaction{
-		SessionID: "test-session",
-		Provider: "openai",
-		Model: "gpt-4",
-		InputTokens: 1000,
-		OutputTokens: 1000,
+		SessionID:        "test-session",
+		Provider:         "openai",
+		Model:            "gpt-4",
+		InputTokens:      1000,
+		OutputTokens:     1000,
 		EstimatedCostUSD: 75.0,
 	})
 	if err != nil {
@@ -63,11 +63,11 @@ func TestCheckBudget_AmberAndRed(t *testing.T) {
 
 	// Log another $25 to push it to Red
 	GlobalLedger.RecordTransaction(Transaction{
-		SessionID: "test-session",
-		Provider: "openai",
-		Model: "gpt-4",
-		InputTokens: 1000,
-		OutputTokens: 1000,
+		SessionID:        "test-session",
+		Provider:         "openai",
+		Model:            "gpt-4",
+		InputTokens:      1000,
+		OutputTokens:     1000,
 		EstimatedCostUSD: 25.0,
 	})
 
@@ -89,11 +89,11 @@ func TestCheckSessionBudget(t *testing.T) {
 
 	// $8 spend -> Amber
 	GlobalLedger.RecordTransaction(Transaction{
-		SessionID: sessionID,
-		Provider: "openai",
-		Model: "gpt-4",
-		InputTokens: 100,
-		OutputTokens: 100,
+		SessionID:        sessionID,
+		Provider:         "openai",
+		Model:            "gpt-4",
+		InputTokens:      100,
+		OutputTokens:     100,
 		EstimatedCostUSD: 8.0,
 	})
 

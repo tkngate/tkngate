@@ -14,21 +14,21 @@ import (
 type TrustTier string
 
 const (
-	TierUntrusted TrustTier = "UNTRUSTED"  // Blacklisted — no access
-	TierNew       TrustTier = "NEW"         // Fresh node — cheap keys only
-	TierTrusted   TrustTier = "TRUSTED"     // Established — standard keys
-	TierPremium   TrustTier = "PREMIUM"     // High-trust — premium GPT-4/Opus keys
+	TierUntrusted TrustTier = "UNTRUSTED" // Blacklisted — no access
+	TierNew       TrustTier = "NEW"       // Fresh node — cheap keys only
+	TierTrusted   TrustTier = "TRUSTED"   // Established — standard keys
+	TierPremium   TrustTier = "PREMIUM"   // High-trust — premium GPT-4/Opus keys
 )
 
 // NodeReputation tracks a mesh participant's trust state.
 type NodeReputation struct {
-	NodeID       string    `json:"node_id"`
-	TrustScore   float64   `json:"trust_score"`
-	TotalRequests int      `json:"total_requests"`
-	Violations   int       `json:"violations"`
-	Tier         TrustTier `json:"tier"`
-	Blacklisted  bool      `json:"blacklisted"`
-	LastActivity time.Time `json:"last_activity"`
+	NodeID        string    `json:"node_id"`
+	TrustScore    float64   `json:"trust_score"`
+	TotalRequests int       `json:"total_requests"`
+	Violations    int       `json:"violations"`
+	Tier          TrustTier `json:"tier"`
+	Blacklisted   bool      `json:"blacklisted"`
+	LastActivity  time.Time `json:"last_activity"`
 }
 
 // ReputationManager maintains trust scores for all mesh participants.
@@ -103,13 +103,13 @@ func (m *ReputationManager) GetOrCreate(nodeID string) *NodeReputation {
 
 	// New node joins the mesh
 	rep := &NodeReputation{
-		NodeID:       nodeID,
-		TrustScore:   config.Cfg.Mesh.InitialTrustScore,
+		NodeID:        nodeID,
+		TrustScore:    config.Cfg.Mesh.InitialTrustScore,
 		TotalRequests: 0,
-		Violations:   0,
-		Tier:         TierNew,
-		Blacklisted:  false,
-		LastActivity: time.Now(),
+		Violations:    0,
+		Tier:          TierNew,
+		Blacklisted:   false,
+		LastActivity:  time.Now(),
 	}
 	m.nodes[nodeID] = rep
 

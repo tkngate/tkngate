@@ -18,7 +18,7 @@ func Compress(content string) string {
 	} else if isJSCode(content) {
 		return compressJS(content)
 	}
-	
+
 	// Fallback: return unchanged
 	return content
 }
@@ -72,7 +72,7 @@ func compressGo(content string) string {
 				// Replace the body with an empty block and a semantic marker.
 				// We can't insert a comment easily since we stripped them, but we can insert a dummy statement or just leave it empty.
 				// A clean way is just to make the body empty, saving tokens.
-				x.Body.List = nil 
+				x.Body.List = nil
 				// A completely empty block '{}' implies the body is omitted.
 			}
 		}
