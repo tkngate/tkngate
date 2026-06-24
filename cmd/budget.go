@@ -33,8 +33,10 @@ var statusCmd = &cobra.Command{
 		spinner.Stop()
 
 		fmt.Println()
-		boxContent := pterm.Sprintf("Total API Spend: %s", pterm.LightYellow(fmt.Sprintf("$%.5f", spent)))
-		pterm.DefaultBox.WithTitle("Budget Ledger").WithRightPadding(2).WithLeftPadding(2).Println(boxContent)
+		fmt.Println(Forest("--------------------------------------------------------------------------------"))
+		fmt.Println(Gold("■ BUDGET LEDGER"))
+		fmt.Printf("  Total API Spend: %s\n", Gold(fmt.Sprintf("$%.5f", spent)))
+		fmt.Println(Forest("--------------------------------------------------------------------------------"))
 		fmt.Println()
 	},
 }

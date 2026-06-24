@@ -74,11 +74,12 @@ var donateCmd = &cobra.Command{
 		}
 		spinner.Success(fmt.Sprintf("Successfully donated %s key to the local DRR pool!", poolProvider))
 
-		fmt.Println()
-		pterm.DefaultBox.WithTitle("Donation Successful").WithRightPadding(2).WithLeftPadding(2).Printf("Provider: %s\nNode ID:  %s\nTPM Quota: %d\n",
-			pterm.LightMagenta(poolProvider),
-			pterm.LightCyan(node.NodeID),
-			poolLimit)
+		fmt.Println(Forest("--------------------------------------------------------------------------------"))
+		fmt.Println(Gold("■ DONATION SUCCESSFUL"))
+		fmt.Printf("  Provider:   %s\n", Gold(poolProvider))
+		fmt.Printf("  Node ID:    %s\n", Gold(node.NodeID))
+		fmt.Printf("  TPM Quota:  %d\n", poolLimit)
+		fmt.Println(Forest("--------------------------------------------------------------------------------"))
 		fmt.Println()
 		return nil
 	},
@@ -102,7 +103,9 @@ var poolStatusCmd = &cobra.Command{
 		spinner.Stop()
 
 		fmt.Println()
-		pterm.DefaultHeader.WithFullWidth().WithBackgroundStyle(pterm.NewStyle(pterm.BgBlue)).Printf("Token Pool Status [%s]\n", poolProvider)
+		fmt.Println(Forest("--------------------------------------------------------------------------------"))
+		fmt.Printf("%s\n", Gold(fmt.Sprintf("■ TOKEN POOL STATUS [%s]", poolProvider)))
+		fmt.Println(Forest("--------------------------------------------------------------------------------"))
 		fmt.Println()
 
 		pterm.Info.Printf("Total Donated Keys: %d\n\n", len(nodes))
@@ -118,8 +121,8 @@ var poolStatusCmd = &cobra.Command{
 
 		for _, node := range nodes {
 			tableData = append(tableData, []string{
-				pterm.LightCyan(node.NodeID),
-				pterm.LightYellow(fmt.Sprintf("%d", node.MeasuredTpmLimit)),
+				Gold(node.NodeID),
+				Gold(fmt.Sprintf("%d", node.MeasuredTpmLimit)),
 			})
 		}
 

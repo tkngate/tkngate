@@ -27,12 +27,8 @@ var serveCmd = &cobra.Command{
 		// Init logger
 		logging.InitLogger()
 
-		// Print sexy banner
-		pterm.DefaultBigText.WithLetters(
-			pterm.NewLettersFromStringWithStyle("TKN", pterm.NewStyle(pterm.FgCyan)),
-			pterm.NewLettersFromStringWithStyle("GATE", pterm.NewStyle(pterm.FgLightBlue)),
-		).Render()
-		pterm.DefaultCenter.Println(pterm.LightMagenta("✦ ENGINE STARTUP SEQUENCE ✦\n"))
+		// Silent brutalist startup for serve command
+		fmt.Println()
 
 		spinner, _ := pterm.DefaultSpinner.Start("Loading configuration...")
 		if err := config.LoadConfig(); err != nil {
@@ -96,12 +92,16 @@ var serveCmd = &cobra.Command{
 
 		fmt.Println()
 
-		boxContent := pterm.Sprintf("Tkngate Daemon %s is online!\nProxy Address: %s", rootCmd.Version, pterm.LightCyan("http://"+addr))
+		fmt.Println(Gold("----------------------------------------------------"))
+		fmt.Println(Gold(fmt.Sprintf("> DAEMON %s ONLINE", rootCmd.Version)))
+		
+		highlight := pterm.NewRGBStyle(pterm.NewRGB(22, 43, 29), pterm.NewRGB(184, 151, 82)).Sprint
+		fmt.Printf("%s %s\n", Gold("PROXY ->"), highlight("http://"+addr))
 		if config.Cfg.Telemetry.Enabled {
-			boxContent += pterm.Sprintf("\nTelemetry API: %s", pterm.LightCyan(fmt.Sprintf("http://%s:%d", config.Cfg.Telemetry.Host, config.Cfg.Telemetry.Port)))
+			fmt.Printf("%s %s\n", Gold("ADMIN ->"), highlight(fmt.Sprintf("http://%s:%d", config.Cfg.Telemetry.Host, config.Cfg.Telemetry.Port)))
 		}
-
-		pterm.DefaultBox.WithRightPadding(2).WithLeftPadding(2).Println(boxContent)
+		fmt.Println()
+		fmt.Println(Gold("■ ENGINE ONLINE. AWAITING SWARM."))
 
 		logging.Logger.Info("proxy engine online", "address", addr)
 

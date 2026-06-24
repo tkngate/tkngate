@@ -50,13 +50,13 @@ var generateCmd = &cobra.Command{
 
 		fmt.Println()
 
-		boxContent := pterm.Sprintf("Name:   %s\nLimit:  $%.2f\nKey:    %s",
-			virtualKeyName,
-			virtualKeyLimit,
-			pterm.LightCyan(key.Plaintext))
-
-		pterm.DefaultBox.WithTitle("New Virtual Key").WithRightPadding(2).WithLeftPadding(2).Println(boxContent)
-
+		fmt.Println(Forest("--------------------------------------------------------------------------------"))
+		fmt.Println(Gold("■ NEW VIRTUAL KEY"))
+		fmt.Printf("  Name:   %s\n", Gold(virtualKeyName))
+		fmt.Printf("  Limit:  $%.2f\n", virtualKeyLimit)
+		fmt.Printf("  Key:    %s\n", Gold(key.Plaintext))
+		fmt.Println(Forest("--------------------------------------------------------------------------------"))
+		
 		pterm.Warning.Println("Store this key safely. You will not be able to see it again!")
 		pterm.Info.Println("Use this key as a Bearer token in your Authorization header.")
 	},
@@ -80,7 +80,9 @@ var listCmd = &cobra.Command{
 		spinner.Stop()
 
 		fmt.Println()
-		pterm.DefaultHeader.WithFullWidth().WithBackgroundStyle(pterm.NewStyle(pterm.BgMagenta)).Println("ACTIVE VIRTUAL KEYS")
+		fmt.Println(Forest("--------------------------------------------------------------------------------"))
+		fmt.Println(Gold("■ ACTIVE VIRTUAL KEYS"))
+		fmt.Println(Forest("--------------------------------------------------------------------------------"))
 		fmt.Println()
 
 		if len(keys) == 0 {
@@ -100,16 +102,16 @@ var listCmd = &cobra.Command{
 			if k.ConsumedBudget >= k.AllocatedBudget {
 				consumedStr = pterm.LightRed(consumedStr)
 			} else if k.ConsumedBudget >= k.AllocatedBudget*0.75 {
-				consumedStr = pterm.LightYellow(consumedStr)
+				consumedStr = Gold(consumedStr)
 			} else {
-				consumedStr = pterm.LightGreen(consumedStr)
+				consumedStr = Forest(consumedStr)
 			}
 
 			tableData = append(tableData, []string{
-				pterm.LightCyan(k.Name),
+				Gold(k.Name),
 				consumedStr,
 				allocatedStr,
-				pterm.Gray(k.CreatedAt),
+				Parch(k.CreatedAt),
 			})
 		}
 

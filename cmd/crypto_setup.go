@@ -38,10 +38,10 @@ func ensureCryptoInitialized() error {
 
 		boxContent := pterm.Sprintf("%s\n\n%s\n%s\n\nLinux/macOS: %s\nWindows:     %s",
 			pterm.LightCyan(key),
-			pterm.LightYellow("IMPORTANT: Copy this key and set it as an environment variable."),
-			pterm.LightYellow("Do not lose this key! If lost, all donated mesh keys will be unrecoverable."),
-			pterm.Gray("export TKNGATE_MASTER_KEY=\""+key+"\""),
-			pterm.Gray("$env:TKNGATE_MASTER_KEY=\""+key+"\""))
+			Gold("IMPORTANT: Copy this key and set it as an environment variable."),
+			Gold("Do not lose this key! If lost, all donated mesh keys will be unrecoverable."),
+			Parch("export TKNGATE_MASTER_KEY=\""+key+"\""),
+			Parch("$env:TKNGATE_MASTER_KEY=\""+key+"\""))
 
 		pterm.DefaultBox.WithTitle("New Master Key Generated").WithRightPadding(2).WithLeftPadding(2).Println(boxContent)
 
