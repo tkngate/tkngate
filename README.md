@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./public/tkngatecli.png" alt="Tkngate Banner" width="60%">
+  <img src="./public/tkngatecli.png" alt="Tkngate Banner" width="50%">
 </p>
 
 <h1 align="center">Tkngate: The P2P Token Mesh</h1>
