@@ -43,12 +43,14 @@ var showCmd = &cobra.Command{
 		spinner.Stop()
 
 		fmt.Println()
-		pterm.DefaultHeader.WithFullWidth().WithBackgroundStyle(pterm.NewStyle(pterm.BgCyan)).Println(pterm.Sprintf("Tkngate Configuration (%s)", rootCmd.Version))
+		fmt.Println(Forest("--------------------------------------------------------------------------------"))
+		fmt.Println(Gold("■ TKNGATE CONFIGURATION (") + Gold(rootCmd.Version) + Gold(")"))
+		fmt.Println(Forest("--------------------------------------------------------------------------------"))
 		fmt.Println()
 
 		var shadowStatus string
 		if config.Cfg.Shadow.Enabled {
-			shadowStatus = pterm.LightGreen("ACTIVE")
+			shadowStatus = Forest("ACTIVE")
 		} else {
 			shadowStatus = pterm.LightRed("DISABLED")
 		}
@@ -59,24 +61,24 @@ var showCmd = &cobra.Command{
 				{
 					Text: "Server",
 					Children: []pterm.TreeNode{
-						{Text: pterm.Sprintf("URL:      %s", pterm.LightGreen(fmt.Sprintf("http://%s:%d", config.Cfg.Server.Host, config.Cfg.Server.Port)))},
-						{Text: pterm.Sprintf("Metrics:  %s", pterm.LightGreen(fmt.Sprintf("http://%s:%d", config.Cfg.Telemetry.Host, config.Cfg.Telemetry.Port)))},
+						{Text: pterm.Sprintf("URL:      %s", Forest(fmt.Sprintf("http://%s:%d", config.Cfg.Server.Host, config.Cfg.Server.Port)))},
+						{Text: pterm.Sprintf("Metrics:  %s", Forest(fmt.Sprintf("http://%s:%d", config.Cfg.Telemetry.Host, config.Cfg.Telemetry.Port)))},
 					},
 				},
 				{
 					Text: "Budget & Safety",
 					Children: []pterm.TreeNode{
-						{Text: pterm.Sprintf("Global Limit:     %s", pterm.LightYellow(fmt.Sprintf("$%.2f / %s", config.Cfg.Budget.GlobalLimitUSD, config.Cfg.Budget.ResetInterval)))},
-						{Text: pterm.Sprintf("Session Limit:    %s", pterm.LightYellow(fmt.Sprintf("$%.2f", config.Cfg.Budget.MaxSessionCostUSD)))},
-						{Text: pterm.Sprintf("Fallback Model:   %s (via %s)", pterm.LightMagenta(config.Cfg.Budget.FallbackModel), config.Cfg.Budget.FallbackProvider)},
+						{Text: pterm.Sprintf("Global Limit:     %s", Gold(fmt.Sprintf("$%.2f / %s", config.Cfg.Budget.GlobalLimitUSD, config.Cfg.Budget.ResetInterval)))},
+						{Text: pterm.Sprintf("Session Limit:    %s", Gold(fmt.Sprintf("$%.2f", config.Cfg.Budget.MaxSessionCostUSD)))},
+						{Text: pterm.Sprintf("Fallback Model:   %s (via %s)", Gold(config.Cfg.Budget.FallbackModel), config.Cfg.Budget.FallbackProvider)},
 					},
 				},
 				{
 					Text: "Shadow Mode",
 					Children: []pterm.TreeNode{
 						{Text: pterm.Sprintf("Status:           %s", shadowStatus)},
-						{Text: pterm.Sprintf("Target:           %s (via %s)", pterm.LightMagenta(config.Cfg.Shadow.TargetModel), config.Cfg.Shadow.TargetProvider)},
-						{Text: pterm.Sprintf("Traffic Fraction: %s", pterm.LightYellow(fmt.Sprintf("%.0f%%", config.Cfg.Shadow.TrafficFraction*100)))},
+						{Text: pterm.Sprintf("Target:           %s (via %s)", Gold(config.Cfg.Shadow.TargetModel), config.Cfg.Shadow.TargetProvider)},
+						{Text: pterm.Sprintf("Traffic Fraction: %s", Gold(fmt.Sprintf("%.0f%%", config.Cfg.Shadow.TrafficFraction*100)))},
 					},
 				},
 			},
@@ -85,9 +87,9 @@ var showCmd = &cobra.Command{
 		providerNodes := []pterm.TreeNode{}
 		for name, p := range config.Cfg.Providers {
 			providerNodes = append(providerNodes, pterm.TreeNode{
-				Text: pterm.LightBlue(name),
+				Text: Gold(name),
 				Children: []pterm.TreeNode{
-					{Text: pterm.Sprintf("Default Model: %s", pterm.LightMagenta(p.DefaultModel))},
+					{Text: pterm.Sprintf("Default Model: %s", Gold(p.DefaultModel))},
 					{Text: pterm.Sprintf("Endpoint:      %s", p.BaseURL)},
 				},
 			})
@@ -122,16 +124,14 @@ var generateMasterKeyCmd = &cobra.Command{
 		spinner.Success("Successfully generated a secure TKNGATE_MASTER_KEY!")
 		key := hex.EncodeToString(bytes)
 
+		fmt.Println(Forest("--------------------------------------------------------------------------------"))
+		fmt.Println(Gold("■ MASTER KEY GENERATED"))
+		fmt.Printf("  %s\n\n", Gold(key))
+		fmt.Println(Gold("  IMPORTANT: Copy this key and set it as an environment variable."))
+		fmt.Println(Gold("  Do not lose this key! If lost, all donated mesh keys will be unrecoverable."))
 		fmt.Println()
-
-		boxContent := pterm.Sprintf("%s\n\n%s\n%s\n\nLinux/macOS: %s\nWindows:     %s",
-			pterm.LightCyan(key),
-			pterm.LightYellow("IMPORTANT: Copy this key and set it as an environment variable."),
-			pterm.LightYellow("Do not lose this key! If lost, all donated mesh keys will be unrecoverable."),
-			pterm.Gray("export TKNGATE_MASTER_KEY=\""+key+"\""),
-			pterm.Gray("$env:TKNGATE_MASTER_KEY=\""+key+"\""))
-
-		pterm.DefaultBox.WithTitle("Master Key").WithRightPadding(2).WithLeftPadding(2).Println(boxContent)
-		fmt.Println()
+		fmt.Printf("  Linux/macOS: %s\n", Parch("export TKNGATE_MASTER_KEY=\""+key+"\""))
+		fmt.Printf("  Windows:     %s\n", Parch("$env:TKNGATE_MASTER_KEY=\""+key+"\""))
+		fmt.Println(Forest("--------------------------------------------------------------------------------"))
 	},
 }

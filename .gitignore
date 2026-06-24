@@ -11,6 +11,9 @@ tkngate.yaml
 # SQLite database
 *.db
 
+# Log files
+*.log
+
 # Go build artifacts
 /vendor/
 

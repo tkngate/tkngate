@@ -28,11 +28,11 @@ type safePoolNode struct {
 func StartTelemetryServer(host string, port int) error {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/api/v1/overview", withAuth(withCORS(handleOverview)))
-	mux.HandleFunc("/api/v1/sessions", withAuth(withCORS(handleSessions)))
-	mux.HandleFunc("/api/v1/pool", withAuth(withCORS(handlePool)))
-	mux.HandleFunc("/api/v1/mesh/stats", withAuth(withCORS(handleMeshStats)))
-	mux.HandleFunc("/api/v1/vkeys", withAuth(withCORS(handleVirtualKeys)))
+	mux.HandleFunc("/api/v1/overview", withCORS(withAuth(handleOverview)))
+	mux.HandleFunc("/api/v1/sessions", withCORS(withAuth(handleSessions)))
+	mux.HandleFunc("/api/v1/pool", withCORS(withAuth(handlePool)))
+	mux.HandleFunc("/api/v1/mesh/stats", withCORS(withAuth(handleMeshStats)))
+	mux.HandleFunc("/api/v1/vkeys", withCORS(withAuth(handleVirtualKeys)))
 	mux.Handle("/metrics", promhttp.Handler())
 
 	addr := fmt.Sprintf("%s:%d", host, port)

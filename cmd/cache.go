@@ -32,16 +32,14 @@ var cacheStatusCmd = &cobra.Command{
 		}
 
 		fmt.Println()
-		pterm.DefaultHeader.WithFullWidth().WithBackgroundStyle(pterm.NewStyle(pterm.BgMagenta)).Println("Semantic Cache Status")
-		fmt.Println()
-
-		stats := pterm.Sprintf("Entries:   %s\n", pterm.LightCyan(size))
-		stats += pterm.Sprintf("Hits:      %s\n", pterm.LightGreen(hits))
-		stats += pterm.Sprintf("Misses:    %s\n", pterm.LightRed(misses))
-		stats += pterm.Sprintf("Hit Rate:  %s\n", pterm.LightYellow(fmt.Sprintf("%.1f%%", hitRate)))
-		stats += pterm.Sprintf("Saved:     %s", pterm.LightYellow(fmt.Sprintf("$%.5f", savings)))
-
-		pterm.DefaultBox.WithRightPadding(4).WithLeftPadding(4).Println(stats)
+		fmt.Println(Forest("--------------------------------------------------------------------------------"))
+		fmt.Println(Gold("■ SEMANTIC CACHE STATUS"))
+		fmt.Printf("  Entries:   %s\n", Gold(size))
+		fmt.Printf("  Hits:      %s\n", Forest(hits))
+		fmt.Printf("  Misses:    %s\n", pterm.LightRed(misses))
+		fmt.Printf("  Hit Rate:  %s\n", Gold(fmt.Sprintf("%.1f%%", hitRate)))
+		fmt.Printf("  Saved:     %s\n", Gold(fmt.Sprintf("$%.5f", savings)))
+		fmt.Println(Forest("--------------------------------------------------------------------------------"))
 		fmt.Println()
 	},
 }

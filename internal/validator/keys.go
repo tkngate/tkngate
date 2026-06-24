@@ -3,6 +3,7 @@ package validator
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -17,10 +18,8 @@ func ValidateKey(provider, key string) error {
 		return validateOpenAICompatible(client, key, "https://api.openai.com/v1/models", "OpenAI")
 
 	case "anthropic":
-		// Anthropic does not have a widely used /models GET endpoint,
-		// but checking /v1/messages with GET will yield a 405 Method Not Allowed
-		// if the key is valid, and 401 Unauthorized if the key is fake.
-		req, err := http.NewRequest("GET", "https://api.anthropic.com/v1/messages", nil)
+		// Use the official models endpoint to validate the key
+		req, err := http.NewRequest("GET", "https://api.anthropic.com/v1/models", nil)
 		if err != nil {
 			return err
 		}
@@ -36,14 +35,37 @@ func ValidateKey(provider, key string) error {
 		if resp.StatusCode == 401 {
 			return fmt.Errorf("invalid or revoked Anthropic API key")
 		}
-		// If we get 405 Method Not Allowed, the auth succeeded but the method is wrong, which is fine!
-		if resp.StatusCode != 405 && resp.StatusCode != 200 {
+		if resp.StatusCode != 200 {
 			return fmt.Errorf("unexpected status code from Anthropic: %d", resp.StatusCode)
 		}
 		return nil
 
 	case "deepseek":
 		return validateOpenAICompatible(client, key, "https://api.deepseek.com/v1/models", "DeepSeek")
+	case "mistral":
+		return validateOpenAICompatible(client, key, "https://api.mistral.ai/v1/models", "Mistral")
+	case "ollama":
+		// Ollama runs locally without authentication. 
+		// We perform a simple health check. Users might pass the host URL as the 'key'.
+		endpoint := "http://localhost:11434/api/tags"
+		if strings.HasPrefix(key, "http") {
+			endpoint = strings.TrimSuffix(key, "/") + "/api/tags"
+		}
+		
+		req, err := http.NewRequest("GET", endpoint, nil)
+		if err != nil {
+			return err
+		}
+		resp, err := client.Do(req)
+		if err != nil {
+			return fmt.Errorf("network error connecting to Ollama: %v", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != 200 {
+			return fmt.Errorf("unexpected status code from Ollama at %s: %d", endpoint, resp.StatusCode)
+		}
+		return nil
 	case "kimi":
 		return validateOpenAICompatible(client, key, "https://api.moonshot.cn/v1/models", "Kimi")
 	case "groq":
