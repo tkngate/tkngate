@@ -2,6 +2,8 @@
 tkngate.exe
 tkngate
 
+/tkngate.exe*
+/tkngate
 tkngate.exe*
 tkngate*
 
