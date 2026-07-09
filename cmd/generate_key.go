@@ -12,7 +12,7 @@ import (
 
 var generateKeyCmd = &cobra.Command{
 	Use:   "generate-master-key",
-	Short: "Generates a new secure 32-byte TKNGATE_MASTER_KEY",
+	Short: "Generates a new secure 32-byte TKNGATE_MASTER_KEY and saves it to .env",
 	Run: func(cmd *cobra.Command, args []string) {
 		bytes := make([]byte, 16)
 		if _, err := rand.Read(bytes); err != nil {
@@ -30,41 +30,42 @@ var generateKeyCmd = &cobra.Command{
 
 		pterm.DefaultBox.WithTitle("New Master Key Generated").WithRightPadding(2).WithLeftPadding(2).Println(boxContent)
 
-		// Optionally update .env
-		envFile := ".env"
-		updateEnv, _ := cmd.Flags().GetBool("update-env")
-		if updateEnv {
-			content, err := os.ReadFile(envFile)
-			var newContent []string
-			keyUpdated := false
-
-			if err == nil {
-				lines := strings.Split(string(content), "\n")
-				for _, line := range lines {
-					if strings.HasPrefix(line, "TKNGATE_MASTER_KEY=") {
-						newContent = append(newContent, "TKNGATE_MASTER_KEY="+key)
-						keyUpdated = true
-					} else {
-						newContent = append(newContent, line)
-					}
-				}
-			}
-
-			if !keyUpdated {
-				newContent = append(newContent, "TKNGATE_MASTER_KEY="+key)
-			}
-
-			err = os.WriteFile(envFile, []byte(strings.Join(newContent, "\n")), 0644)
-			if err != nil {
-				pterm.Error.Println("Failed to update .env file:", err)
-			} else {
-				pterm.Success.Printf("Successfully updated %s with the new master key.\n", envFile)
-			}
-		}
+		// Automatically save to .env
+		saveKeyToEnv(key)
 	},
 }
 
+// saveKeyToEnv writes or updates the TKNGATE_MASTER_KEY in the .env file.
+func saveKeyToEnv(key string) {
+	envFile := ".env"
+	content, err := os.ReadFile(envFile)
+	var newContent []string
+	keyUpdated := false
+
+	if err == nil {
+		lines := strings.Split(string(content), "\n")
+		for _, line := range lines {
+			if strings.HasPrefix(line, "TKNGATE_MASTER_KEY=") {
+				newContent = append(newContent, "TKNGATE_MASTER_KEY="+key)
+				keyUpdated = true
+			} else {
+				newContent = append(newContent, line)
+			}
+		}
+	}
+
+	if !keyUpdated {
+		newContent = append(newContent, "TKNGATE_MASTER_KEY="+key)
+	}
+
+	err = os.WriteFile(envFile, []byte(strings.Join(newContent, "\n")), 0644)
+	if err != nil {
+		pterm.Error.Println("Failed to update .env file:", err)
+	} else {
+		pterm.Success.Printf("Automatically saved Master Key to %s\n", envFile)
+	}
+}
+
 func init() {
-	generateKeyCmd.Flags().Bool("update-env", false, "Automatically update the .env file with the new key")
 	rootCmd.AddCommand(generateKeyCmd)
 }

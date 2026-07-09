@@ -21,15 +21,15 @@ tkngate serve
 ## Config & Security
 
 ### `tkngate generate-master-key`
-Generates a cryptographically secure 32-byte master key. You must set this key in your environment to enable the zero-knowledge mesh encryption.
+Generates a cryptographically secure 32-byte master key and **automatically saves it to `.env`**. You can also access this from the interactive menu under `config > Generate Master Key`.
 ```bash
-tkngate generate-master-key --update-env
+tkngate generate-master-key
 
 # Output:
 # ┌─ New Master Key Generated ──────────┐
-# |  [YOUR 32-BYTE HEX KEY]           |
-# └─────────────────────────────────────┘
-# SUCCESS Successfully updated .env with the new master key.
+# |  [YOUR 32-BYTE HEX KEY]             |
+# └──────────────────────────────────────┘
+# SUCCESS Automatically saved Master Key to .env
 ```
 
 ## Virtual Key Management
