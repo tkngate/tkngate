@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"tkngate/internal/config"
 
@@ -108,30 +106,6 @@ func init() {
 	rootCmd.AddCommand(configCmd)
 	configCmd.AddCommand(validateCmd)
 	configCmd.AddCommand(showCmd)
-	configCmd.AddCommand(generateMasterKeyCmd)
 }
 
-var generateMasterKeyCmd = &cobra.Command{
-	Use:   "generate-master-key",
-	Short: "Generates a 32-character secure random master key",
-	Run: func(cmd *cobra.Command, args []string) {
-		spinner, _ := pterm.DefaultSpinner.Start("Generating secure master key...")
-		bytes := make([]byte, 16)
-		if _, err := rand.Read(bytes); err != nil {
-			spinner.Fail("Error generating key: ", err.Error())
-			return
-		}
-		spinner.Success("Successfully generated a secure TKNGATE_MASTER_KEY!")
-		key := hex.EncodeToString(bytes)
 
-		fmt.Println(Forest("--------------------------------------------------------------------------------"))
-		fmt.Println(Gold("■ MASTER KEY GENERATED"))
-		fmt.Printf("  %s\n\n", Gold(key))
-		fmt.Println(Gold("  IMPORTANT: Copy this key and set it as an environment variable."))
-		fmt.Println(Gold("  Do not lose this key! If lost, all donated mesh keys will be unrecoverable."))
-		fmt.Println()
-		fmt.Printf("  Linux/macOS: %s\n", Parch("export TKNGATE_MASTER_KEY=\""+key+"\""))
-		fmt.Printf("  Windows:     %s\n", Parch("$env:TKNGATE_MASTER_KEY=\""+key+"\""))
-		fmt.Println(Forest("--------------------------------------------------------------------------------"))
-	},
-}
