@@ -39,4 +39,29 @@ var (
 		},
 		[]string{"reason"},
 	)
+
+	// BudgetSpentTotal tracks the estimated total USD cost of all requests.
+	BudgetSpentTotal = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Name: "tkngate_budget_spent_usd_total",
+			Help: "The total estimated cost of all tokens consumed in USD",
+		},
+	)
+
+	// VirtualKeySpend tracks the estimated USD cost per Virtual Key.
+	VirtualKeySpend = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "tkngate_virtual_key_spend_usd_total",
+			Help: "The total estimated cost in USD per Virtual Key",
+		},
+		[]string{"virtual_key"},
+	)
+
+	// ActiveConnections tracks the number of currently in-flight requests.
+	ActiveConnections = promauto.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "tkngate_active_connections",
+			Help: "The number of currently active in-flight requests to the proxy",
+		},
+	)
 )

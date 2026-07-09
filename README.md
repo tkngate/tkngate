@@ -47,18 +47,44 @@ go build -o tkngate
 # 2. Setup your config
 cp tkngate.example.yaml tkngate.yaml 
 
-# 3. Start the interactive CLI
-./tkngate
+### 3. Start the Daemon
+
+```bash
+tkngate serve
 ```
 
-The CLI will guide you through generating a secure Master Key (AES-256) if you don't have one, and present a professional interactive menu to start the proxy, manage budgets, or view mesh telemetry.
+### 4. Telemetry & Observability
+
+Tkngate natively exports Prometheus metrics on the telemetry port (default `7478`). You can hook this directly into Datadog, Grafana, or New Relic to monitor enterprise spend.
+
+Add this job to your `prometheus.yml`:
+```yaml
+scrape_configs:
+  - job_name: 'tkngate'
+    static_configs:
+      - targets: ['localhost:7478']
+```
+
+The exporter provides detailed metrics including:
+- `tkngate_budget_spent_usd_total`: Total enterprise API cost.
+- `tkngate_virtual_key_spend_usd_total`: API cost tracked by individual Virtual Keys.
+- `tkngate_active_connections`: In-flight requests to the proxy.
+- `tkngate_cache_hits_total`: Total cache hits.
+- `tkngate_waf_intercepts_total`: Requests blocked by the AI-WAF.
+
+---
+
+## 🏗️ The Mesh (Decentralised Load Balancing)
 
 ---
 
 ## Enterprise Features
 
-- **Virtual Budgets (Virtual Keys):** Issue `tkngate-sk-...` keys to your agents with hard USD caps. If a loop goes rogue, the proxy instantly blocks traffic, saving your credit card.
-- **Semantic Caching:** Identical prompts are served from memory for `$0.00` with zero latency.
+- **Deficit Round Robin (DRR)** routing algorithm ensures completely fair bandwidth distribution across nodes.
+- **Enterprise Budget Guard** sets hard limits on per-session and global token spend to prevent run-away AI agents.
+- **Semantic Caching** saves you up to 80% on repetitive prompt token costs.
+- **Distributed Redis Caching** allows multiple Tkngate nodes to share cached responses instantly across your load-balanced enterprise infrastructure.
+- **Dynamic AI-WAF** intercepts prompt-injections, custom enterprise secrets, and ToS-violating keywords before they hit OpenAI.
 - **Universal Fallback:** If OpenAI returns a `500` or `503`, Tkngate automatically transparently falls back to Anthropic or DeepSeek.
 - **Context Compressor:** Automatically strips comments and whitespace from code-heavy prompts, reducing token bills by up to 40%.
 - **Shadow Mode:** Silently mirror 10% of your production traffic to a cheaper provider (like DeepSeek) to evaluate responses without impacting your main flow latency.

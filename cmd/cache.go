@@ -2,7 +2,9 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"tkngate/internal/cache"
+	"tkngate/internal/config"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
@@ -20,6 +22,13 @@ var cacheStatusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show semantic cache statistics",
 	Run: func(cmd *cobra.Command, args []string) {
+		if err := config.LoadConfig(); err != nil {
+			pterm.Error.Println("Failed to load config:", err)
+			os.Exit(1)
+		}
+		
+		cache.InitCache(config.Cfg.Cache.MaxEntries, config.Cfg.Cache.TTLSeconds, config.Cfg.Cache.RedisURI)
+
 		if cache.GlobalCache == nil {
 			pterm.Warning.Println("Semantic cache is not initialised. Enable it in tkngate.yaml.")
 			return
@@ -44,7 +53,34 @@ var cacheStatusCmd = &cobra.Command{
 	},
 }
 
+var cacheClearCmd = &cobra.Command{
+	Use:   "clear",
+	Short: "Clear all entries in the semantic cache",
+	Run: func(cmd *cobra.Command, args []string) {
+		if err := config.LoadConfig(); err != nil {
+			pterm.Error.Println("Failed to load config:", err)
+			os.Exit(1)
+		}
+		
+		cache.InitCache(config.Cfg.Cache.MaxEntries, config.Cfg.Cache.TTLSeconds, config.Cfg.Cache.RedisURI)
+
+		if cache.GlobalCache == nil {
+			pterm.Warning.Println("Semantic cache is not initialised.")
+			return
+		}
+
+		spinner, _ := pterm.DefaultSpinner.Start("Clearing semantic cache...")
+		err := cache.GlobalCache.Clear()
+		if err != nil {
+			spinner.Fail("Failed to clear cache: ", err.Error())
+			return
+		}
+		spinner.Success("Semantic cache successfully cleared")
+	},
+}
+
 func init() {
 	cacheCmd.AddCommand(cacheStatusCmd)
+	cacheCmd.AddCommand(cacheClearCmd)
 	rootCmd.AddCommand(cacheCmd)
 }

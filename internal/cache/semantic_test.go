@@ -110,3 +110,24 @@ func TestCacheInterface_InMemory(t *testing.T) {
 	var _ Cache = GlobalCache
 	t.Log("GlobalCache correctly implements Cache interface (InMemoryCache)")
 }
+
+func TestInMemoryCache_ToolCalling(t *testing.T) {
+	logging.InitLogger()
+	InitCache(10, 60, "")
+
+	plainPayload := []byte(`{"model":"gpt-4o","messages":[{"role":"user","content":"What is the weather?"}]}`)
+	toolPayload := []byte(`{"model":"gpt-4o","messages":[{"role":"user","content":"What is the weather?"}],"tools":[{"type":"function","function":{"name":"get_weather"}}]}`)
+
+	plainResponse := []byte(`{"choices":[{"message":{"content":"I don't know the weather."}}]}`)
+
+	// Put plain response
+	GlobalCache.Put(plainPayload, plainResponse, 200, 0.01)
+
+	// Tool payload should NOT get a hit from the plain cache
+	hit := GlobalCache.Get(toolPayload)
+	if hit != nil {
+		t.Error("CRITICAL BUG: Tool payload got a cache hit from a plain payload! Semantic key bleeding detected.")
+	}
+
+	t.Log("Tool-calling payloads are correctly isolated from plain text payloads")
+}
