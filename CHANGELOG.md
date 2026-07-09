@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.9.4] - Tool-Calling & Structured Output Support
+### Fixed
+- **Semantic Cache Corruption**: The Semantic Cache now deterministically isolates JSON payload components (`tools`, `tool_choice`, `response_format`) so that Agentic requests (e.g. LangChain, AutoGen) never collide with plain-text cache keys, completely preventing hallucinated tool-call returns.
+
 ## [v1.9.3] - Prometheus & OpenTelemetry Metrics
 ### Added
 - **Prometheus Exporter**: The `/metrics` endpoint on the telemetry port now exports real-time enterprise metrics (`tkngate_budget_spent_usd_total`, `tkngate_active_connections`, `tkngate_virtual_key_spend_usd_total`) allowing instant integration with Datadog and Grafana.

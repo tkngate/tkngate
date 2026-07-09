@@ -86,6 +86,15 @@ func computeKey(payload []byte) string {
 	if m, ok := data["messages"]; ok {
 		canonical["messages"] = m
 	}
+	if t, ok := data["tools"]; ok {
+		canonical["tools"] = t
+	}
+	if tc, ok := data["tool_choice"]; ok {
+		canonical["tool_choice"] = tc
+	}
+	if rf, ok := data["response_format"]; ok {
+		canonical["response_format"] = rf
+	}
 
 	canonicalBytes, err := json.Marshal(canonical)
 	if err != nil {

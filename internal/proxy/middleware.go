@@ -612,6 +612,15 @@ func canonicalizePayload(payload []byte) []byte {
 	if messages, ok := data["messages"]; ok {
 		canonical["messages"] = messages
 	}
+	if tools, ok := data["tools"]; ok {
+		canonical["tools"] = tools
+	}
+	if toolChoice, ok := data["tool_choice"]; ok {
+		canonical["tool_choice"] = toolChoice
+	}
+	if responseFormat, ok := data["response_format"]; ok {
+		canonical["response_format"] = responseFormat
+	}
 	
 	if newPayload, err := json.Marshal(canonical); err == nil {
 		return newPayload
