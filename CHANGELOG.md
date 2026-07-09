@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.9.1] - Dynamic WAF Rules & CLI Fixes
+### Added
+- **Dynamic AI-WAF**: The Web Application Firewall (WAF) now supports custom regex blocklists defined in `tkngate.yaml`. You can now block proprietary project names, credit cards, or custom prompt-injection signatures at the proxy level.
+### Fixed
+- **Startup Crash**: Fixed a nil pointer dereference in the logging engine during WAF initialization if telemetry was disabled.
+
 ## [v1.9.0] - Enterprise SDKs & Critical Stability Fixes
 ### Added
 - **Official SDK Wrappers**: Zero-friction drop-in SDK wrappers for Python (`tkngate`) and Node.js (`tkngate`). 

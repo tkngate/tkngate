@@ -57,3 +57,10 @@ mesh:
   blacklist_threshold: 10.0
   premium_trust_minimum: 80.0
   free_rider_limit: 10000  # Max tokens a session can draw from the P2P pool before being rate-limited
+
+waf:
+  enabled: true
+  blocklist:
+    - "(?i)competitor_name"            # Block case-insensitive mentions of a competitor
+    - "(?i)ignore all previous"        # Block classic prompt injections
+    - "\\b4[0-9]{12}(?:[0-9]{3})?\\b"  # Custom regex for Visa credit cards

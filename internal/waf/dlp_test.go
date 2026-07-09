@@ -3,9 +3,13 @@ package waf
 import (
 	"strings"
 	"testing"
+	"tkngate/internal/config"
 )
 
 func TestDetectJailbreak(t *testing.T) {
+	config.Cfg.WAF.Enabled = true
+	InitWAF()
+
 	tests := []struct {
 		name    string
 		payload []byte
