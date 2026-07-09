@@ -33,6 +33,11 @@ func InitLedger() error {
 	if err != nil {
 		return err
 	}
+	
+	// Enable Write-Ahead Logging (WAL) for high concurrency
+	if _, err := db.Exec(`PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;`); err != nil {
+		return err
+	}
 
 	// Create tables
 	query := `

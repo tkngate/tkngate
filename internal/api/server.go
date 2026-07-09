@@ -1,6 +1,8 @@
 package api
 
 import (
+	cryptoRand "crypto/rand"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -223,19 +225,72 @@ func handleMeshStats(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleVirtualKeys(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
+	switch r.Method {
+	case "GET":
+		keys, err := budget.GlobalLedger.GetVirtualKeys()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"virtual_keys": keys,
+		})
+
+	case "POST":
+		var req struct {
+			Name   string  `json:"name"`
+			Budget float64 `json:"budget_usd"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Name == "" {
+			http.Error(w, `{"error":"name and budget_usd required"}`, http.StatusBadRequest)
+			return
+		}
+		if req.Budget <= 0 {
+			req.Budget = 10.0
+		}
+		// Generate a secure random key: tkngate-sk-<16 hex bytes>
+		buf := make([]byte, 16)
+		if _, err := cryptoRand.Read(buf); err != nil {
+			http.Error(w, `{"error":"key generation failed"}`, http.StatusInternalServerError)
+			return
+		}
+		plainKey := fmt.Sprintf("tkngate-sk-%x", buf)
+		keyHash := fmt.Sprintf("%x", sha256Sum([]byte(plainKey)))
+		if err := budget.GlobalLedger.RegisterVirtualKey(keyHash, req.Name, req.Budget); err != nil {
+			http.Error(w, `{"error":"key already exists or db error"}`, http.StatusConflict)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"key":        plainKey,
+			"name":       req.Name,
+			"budget_usd": req.Budget,
+			"note":       "Store this key securely — it will not be shown again.",
+		})
+
+	case "DELETE":
+		var req struct {
+			Name string `json:"name"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Name == "" {
+			http.Error(w, `{"error":"name required"}`, http.StatusBadRequest)
+			return
+		}
+		if err := budget.GlobalLedger.RevokeVirtualKey(req.Name); err != nil {
+			http.Error(w, `{"error":"key not found"}`, http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{"status": "revoked", "name": req.Name})
+
+	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
 	}
+}
 
-	keys, err := budget.GlobalLedger.GetVirtualKeys()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"virtual_keys": keys,
-	})
+func sha256Sum(b []byte) []byte {
+	h := sha256.Sum256(b)
+	return h[:]
 }

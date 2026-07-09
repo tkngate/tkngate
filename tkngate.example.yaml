@@ -56,3 +56,4 @@ mesh:
   slash_penalty: 25.0
   blacklist_threshold: 10.0
   premium_trust_minimum: 80.0
+  free_rider_limit: 10000  # Max tokens a session can draw from the P2P pool before being rate-limited
