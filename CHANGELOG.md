@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.9.2] - Distributed Redis Caching
+### Added
+- **Distributed Semantic Caching**: The Semantic Cache can now be globally shared across all Tkngate nodes by pointing `cache.redis_uri` to a Redis cluster.
+- **CLI Commands**: Added `tkngate cache status` to retrieve cache savings and hit rates, and `tkngate cache clear` to flush the cache.
+
 ## [v1.9.1] - Dynamic WAF Rules & CLI Fixes
 ### Added
 - **Dynamic AI-WAF**: The Web Application Firewall (WAF) now supports custom regex blocklists defined in `tkngate.yaml`. You can now block proprietary project names, credit cards, or custom prompt-injection signatures at the proxy level.

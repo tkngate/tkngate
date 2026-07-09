@@ -114,3 +114,25 @@ func (r *RedisCache) Stats() (hits int64, misses int64, size int, savingsUSD flo
 
 	return hits, misses, size, savingsUSD
 }
+
+// Clear flushes all tkngate related keys from Redis.
+func (r *RedisCache) Clear() error {
+	ctx := context.Background()
+	
+	// Delete stats
+	r.client.Del(ctx, "tkngate:stats:hits", "tkngate:stats:misses", "tkngate:stats:savings")
+	
+	// Delete all tkngate:cache:* keys
+	// This uses a scan loop to avoid blocking Redis with a KEYS command
+	iter := r.client.Scan(ctx, 0, "tkngate:cache:*", 0).Iterator()
+	for iter.Next(ctx) {
+		r.client.Del(ctx, iter.Val())
+	}
+	
+	if err := iter.Err(); err != nil {
+		logging.Logger.Error("Redis scan error during Clear", "error", err)
+		return err
+	}
+	
+	return nil
+}

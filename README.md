@@ -57,8 +57,11 @@ The CLI will guide you through generating a secure Master Key (AES-256) if you d
 
 ## Enterprise Features
 
-- **Virtual Budgets (Virtual Keys):** Issue `tkngate-sk-...` keys to your agents with hard USD caps. If a loop goes rogue, the proxy instantly blocks traffic, saving your credit card.
-- **Semantic Caching:** Identical prompts are served from memory for `$0.00` with zero latency.
+- **Deficit Round Robin (DRR)** routing algorithm ensures completely fair bandwidth distribution across nodes.
+- **Enterprise Budget Guard** sets hard limits on per-session and global token spend to prevent run-away AI agents.
+- **Semantic Caching** saves you up to 80% on repetitive prompt token costs.
+- **Distributed Redis Caching** allows multiple Tkngate nodes to share cached responses instantly across your load-balanced enterprise infrastructure.
+- **Dynamic AI-WAF** intercepts prompt-injections, custom enterprise secrets, and ToS-violating keywords before they hit OpenAI.
 - **Universal Fallback:** If OpenAI returns a `500` or `503`, Tkngate automatically transparently falls back to Anthropic or DeepSeek.
 - **Context Compressor:** Automatically strips comments and whitespace from code-heavy prompts, reducing token bills by up to 40%.
 - **Shadow Mode:** Silently mirror 10% of your production traffic to a cheaper provider (like DeepSeek) to evaluate responses without impacting your main flow latency.

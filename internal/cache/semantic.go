@@ -24,6 +24,7 @@ type Cache interface {
 	Get(payload []byte) *CacheEntry
 	Put(payload []byte, responseBody []byte, statusCode int, estimatedCost float64)
 	Stats() (hits int64, misses int64, size int, savingsUSD float64)
+	Clear() error
 }
 
 // InMemoryCache is a thread-safe in-memory LRU cache keyed by a SHA-256
@@ -173,4 +174,18 @@ func (c *InMemoryCache) Stats() (hits int64, misses int64, size int, savingsUSD 
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.hits, c.misses, len(c.entries), c.savings
+}
+
+// Clear flushes all entries from the in-memory cache.
+func (c *InMemoryCache) Clear() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	
+	// Reset the map and counters (except hits/misses to keep historical stats, but we reset them anyway for a clean slate)
+	c.entries = make(map[string]*CacheEntry)
+	c.hits = 0
+	c.misses = 0
+	c.savings = 0
+	
+	return nil
 }
