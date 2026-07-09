@@ -31,6 +31,9 @@ type proxyTransport struct {
 }
 
 func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	telemetry.ActiveConnections.Inc()
+	defer telemetry.ActiveConnections.Dec()
+
 	start := time.Now()
 
 	pathParts := strings.SplitN(strings.TrimPrefix(req.URL.Path, "/"), "/", 2)
@@ -446,6 +449,10 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 			telemetry.RequestsTotal.WithLabelValues(provider, fmt.Sprintf("%d", res.StatusCode)).Inc()
 			telemetry.TokensConsumedTotal.Add(float64(inTokens + outTokens))
+			telemetry.BudgetSpentTotal.Add(cost)
+			if authenticatedKeyHash != "" {
+				telemetry.VirtualKeySpend.WithLabelValues(authenticatedKeyHash).Add(cost)
+			}
 
 			logging.Logger.Info("Request handled",
 				"provider", provider,

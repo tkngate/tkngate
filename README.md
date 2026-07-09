@@ -47,11 +47,34 @@ go build -o tkngate
 # 2. Setup your config
 cp tkngate.example.yaml tkngate.yaml 
 
-# 3. Start the interactive CLI
-./tkngate
+### 3. Start the Daemon
+
+```bash
+tkngate serve
 ```
 
-The CLI will guide you through generating a secure Master Key (AES-256) if you don't have one, and present a professional interactive menu to start the proxy, manage budgets, or view mesh telemetry.
+### 4. Telemetry & Observability
+
+Tkngate natively exports Prometheus metrics on the telemetry port (default `7478`). You can hook this directly into Datadog, Grafana, or New Relic to monitor enterprise spend.
+
+Add this job to your `prometheus.yml`:
+```yaml
+scrape_configs:
+  - job_name: 'tkngate'
+    static_configs:
+      - targets: ['localhost:7478']
+```
+
+The exporter provides detailed metrics including:
+- `tkngate_budget_spent_usd_total`: Total enterprise API cost.
+- `tkngate_virtual_key_spend_usd_total`: API cost tracked by individual Virtual Keys.
+- `tkngate_active_connections`: In-flight requests to the proxy.
+- `tkngate_cache_hits_total`: Total cache hits.
+- `tkngate_waf_intercepts_total`: Requests blocked by the AI-WAF.
+
+---
+
+## 🏗️ The Mesh (Decentralised Load Balancing)
 
 ---
 

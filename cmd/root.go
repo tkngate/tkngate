@@ -10,7 +10,7 @@ import (
 
 var rootCmd = &cobra.Command{
 	Use:     "tkngate",
-	Version: "v1.9.2-distributed-redis-caching",
+	Version: "v1.9.3-prometheus-metrics",
 	Short:   "tkngate is an enterprise token-management reverse proxy",
 	Long: `tkngate is a zero-knowledge reverse proxy daemon for LLM APIs.
 It provides P2P token pooling, real-time budget enforcement, and semantic caching.`,
