@@ -172,11 +172,29 @@ func init() {
 					}
 				}
 			case "budget (Check Budget Status)":
-				statusCmd.Run(statusCmd, []string{})
+				budgetOpts := []string{"View Ledger Status", "Reset Ledger", "Back"}
+				budgetAction := createMenu("Budget Ledger", budgetOpts)
+
+				switch budgetAction {
+				case "View Ledger Status":
+					statusCmd.Run(statusCmd, []string{})
+				case "Reset Ledger":
+					resetCmd.Run(resetCmd, []string{})
+				}
 			case "cache  (Semantic Cache Status)":
 				cacheStatusCmd.Run(cacheStatusCmd, []string{})
 			case "config (Configure Tkngate)":
-				showCmd.Run(showCmd, []string{})
+				configOpts := []string{"Show Config", "Validate Config", "Generate Master Key", "Back"}
+				configAction := createMenu("Configuration", configOpts)
+
+				switch configAction {
+				case "Show Config":
+					showCmd.Run(showCmd, []string{})
+				case "Validate Config":
+					validateCmd.Run(validateCmd, []string{})
+				case "Generate Master Key":
+					generateKeyCmd.Run(generateKeyCmd, []string{})
+				}
 			case "pool   (P2P Mesh Pool Status)":
 				poolOpts := []string{"View Pool Status", "Donate API Key", "Back"}
 				poolAction := createMenu("P2P Token Mesh", poolOpts)

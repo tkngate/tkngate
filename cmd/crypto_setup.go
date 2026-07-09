@@ -45,6 +45,9 @@ func ensureCryptoInitialized() error {
 
 		pterm.DefaultBox.WithTitle("New Master Key Generated").WithRightPadding(2).WithLeftPadding(2).Println(boxContent)
 
+		// Automatically save to .env
+		saveKeyToEnv(key)
+
 	case "Enter an existing Master Key manually":
 		key, _ := pterm.DefaultInteractiveTextInput.WithMask("*").Show("Enter your 32-character TKNGATE_MASTER_KEY")
 		os.Setenv("TKNGATE_MASTER_KEY", key)
