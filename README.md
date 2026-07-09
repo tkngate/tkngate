@@ -76,6 +76,15 @@ The exporter provides detailed metrics including:
 
 ## 🏗️ The Mesh (Decentralised Load Balancing)
 
+As of `v2.0.0`, Tkngate features a full **Stake-and-Slash Reputation Engine** for peer-to-peer enterprise pooling. 
+Instead of a single bottleneck API key, enterprise teams can donate multiple keys into a shared pool governed by Game Theory:
+
+1. **Deficit Round Robin (DRR):** The mesh algorithm guarantees that nodes consuming too many tokens without donating their own keys (free-riders) are heavily throttled.
+2. **Stake-and-Slash Reputation:** Nodes start with a base Trust Score. 
+   - If they route safe, clean prompts, their score increases. 
+   - If they route a prompt that gets flagged by our **Dynamic AI-WAF** or the **OpenAI Pre-flight Moderation Engine**, their trust is instantly slashed. 
+   - If trust drops too low, the DRR automatically isolates them from routing through high-TPM, enterprise-grade premium keys, eliminating the "Tragedy of the Commons".
+
 ---
 
 ## Enterprise Features

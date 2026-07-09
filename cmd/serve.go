@@ -13,6 +13,7 @@ import (
 	"tkngate/internal/config"
 	"tkngate/internal/limiter"
 	"tkngate/internal/logging"
+	"tkngate/internal/mesh"
 	"tkngate/internal/pool"
 	"tkngate/internal/proxy"
 	"tkngate/internal/waf"
@@ -64,6 +65,18 @@ var serveCmd = &cobra.Command{
 		spinner, _ = pterm.DefaultSpinner.Start("Initializing DRR mesh pool...")
 		pool.InitDRR()
 		spinner.Success("DRR Mesh Pool active")
+
+		if config.Cfg.Mesh.ReputationEnabled {
+			spinner, _ = pterm.DefaultSpinner.Start("Initializing Stake-and-Slash Reputation Engine...")
+			if err := mesh.InitReputation(budget.GlobalLedger.DB()); err != nil {
+				spinner.Fail("Failed to init reputation: ", err.Error())
+				logging.Logger.Error("failed to init reputation engine", "error", err)
+				os.Exit(1)
+			}
+			spinner.Success("Reputation Engine active")
+		} else {
+			pterm.Info.Println("Reputation Engine disabled")
+		}
 
 		limiter.GlobalManager.StartCleanup()
 		if config.Cfg.RateLimit.Enabled {

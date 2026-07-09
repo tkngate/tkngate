@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.0.0] - Stake-and-Slash Reputation Engine
+### Added
+- **Game-Theory Economics**: Fully wired the Stake-and-Slash Reputation Engine into the live proxy pipeline.
+- **Preflight Moderation**: Automatically blocks ToS-violating prompts using OpenAI's moderation API *before* they consume donated keys.
+- **WAF Slashing Hook**: Triggering AI-WAF jailbreak blocks now permanently degrades the offending node's mesh trust score.
+- **Tier-Based Routing**: The DRR Fairness Engine now prevents `UNTRUSTED` and `NEW` nodes from routing traffic through enterprise-grade, high-TPM premium keys, protecting them from abuse.
+- **Mesh Telemetry API**: Added `/api/v1/mesh/reputation` endpoint to observe real-time trust scores.
+- **Prometheus Metrics**: `tkngate_mesh_slashes_total` and `tkngate_mesh_trust_score` now exported.
+
 ## [v1.9.4] - Tool-Calling & Structured Output Support
 ### Fixed
 - **Semantic Cache Corruption**: The Semantic Cache now deterministically isolates JSON payload components (`tools`, `tool_choice`, `response_format`) so that Agentic requests (e.g. LangChain, AutoGen) never collide with plain-text cache keys, completely preventing hallucinated tool-call returns.

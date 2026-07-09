@@ -9,11 +9,13 @@ import (
 
 	"tkngate/internal/budget"
 	"tkngate/internal/config"
+	"tkngate/internal/logging"
 	"tkngate/internal/tokenizer"
 )
 
 // setupTestEnv sets up enough of the global environment to allow proxy tests to run
 func setupTestEnv(t *testing.T) {
+	logging.InitLogger()
 	// Initialize memory ledger so budget checks don't panic
 	err := budget.InitMemoryLedger()
 	if err != nil {
@@ -27,6 +29,8 @@ func setupTestEnv(t *testing.T) {
 	}
 
 	config.Cfg = config.Config{}
+	config.Cfg.Budget.GlobalLimitUSD = 999999
+	config.Cfg.Budget.RedThresholdPct = 95
 	config.Cfg.Budget.FallbackModel = "gpt-4o-mini"
 }
 
