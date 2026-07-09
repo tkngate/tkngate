@@ -18,6 +18,12 @@ type Config struct {
 	RateLimit  RateLimitConfig           `mapstructure:"rate_limit"`
 	Mesh       MeshConfig                `mapstructure:"mesh"`
 	Cloud      CloudConfig               `mapstructure:"cloud"`
+	WAF        WAFConfig                 `mapstructure:"waf"`
+}
+
+type WAFConfig struct {
+	Enabled   bool     `mapstructure:"enabled"`
+	Blocklist []string `mapstructure:"blocklist"`
 }
 
 type ServerConfig struct {

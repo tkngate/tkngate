@@ -15,6 +15,7 @@ import (
 	"tkngate/internal/logging"
 	"tkngate/internal/pool"
 	"tkngate/internal/proxy"
+	"tkngate/internal/waf"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
@@ -45,6 +46,14 @@ var serveCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		spinner.Success("Ledger & Budget Guard active")
+
+		spinner, _ = pterm.DefaultSpinner.Start("Initializing WAF (Web Application Firewall)...")
+		waf.InitWAF()
+		if config.Cfg.WAF.Enabled {
+			spinner.Success("WAF Engine active")
+		} else {
+			spinner.Warning("WAF Engine disabled")
+		}
 
 		if err := ensureCryptoInitialized(); err != nil {
 			pterm.Error.Println("Crypto engine failed to initialise:", err.Error())
