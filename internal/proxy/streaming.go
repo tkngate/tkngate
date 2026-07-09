@@ -7,8 +7,10 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"tkngate/internal/budget"
+	"tkngate/internal/cloud"
 	"tkngate/internal/config"
 	"tkngate/internal/logging"
 	"tkngate/internal/tokenizer"
@@ -35,9 +37,11 @@ type streamingResponseBody struct {
 	tokensSoFar    int
 	buffer         bytes.Buffer
 	done           bool
+	startTime      time.Time
+	firstTokenTime time.Time
 }
 
-func newStreamingResponseBody(body io.ReadCloser, counter *tokenizer.Counter, model, provider, sessionID, virtualKeyHash string) *streamingResponseBody {
+func newStreamingResponseBody(body io.ReadCloser, counter *tokenizer.Counter, model, provider, sessionID, virtualKeyHash string, startTime time.Time) *streamingResponseBody {
 	scanner := bufio.NewScanner(body)
 	scanner.Buffer(make([]byte, 64*1024), 1024*1024) // 1MB max line
 	return &streamingResponseBody{
@@ -48,6 +52,7 @@ func newStreamingResponseBody(body io.ReadCloser, counter *tokenizer.Counter, mo
 		provider:       provider,
 		sessionID:      sessionID,
 		virtualKeyHash: virtualKeyHash,
+		startTime:      startTime,
 	}
 }
 
@@ -70,6 +75,11 @@ func (s *streamingResponseBody) Read(p []byte) (int, error) {
 			return 0, err
 		}
 		return 0, io.EOF
+	}
+
+	// Capture time to first token (TTFT) on first successful read of the stream
+	if s.firstTokenTime.IsZero() {
+		s.firstTokenTime = time.Now()
 	}
 
 	line := s.scanner.Text()
@@ -148,26 +158,52 @@ func (s *streamingResponseBody) recordTransaction() {
 	}
 
 	cost := tokenizer.EstimateCost(s.provider, s.model, 0, s.tokensSoFar)
-
-	tx := budget.Transaction{
-		SessionID:        s.sessionID,
-		VirtualKeyHash:   s.virtualKeyHash,
-		Provider:         s.provider,
-		Model:            s.model,
-		InputTokens:      0, // Input tokens are counted before the stream starts
-		OutputTokens:     s.tokensSoFar,
-		EstimatedCostUSD: cost,
+	
+	// Calculate TTFT and full stream Latency
+	latencyMs := int(time.Since(s.startTime).Milliseconds())
+	ttftMs := latencyMs
+	if !s.firstTokenTime.IsZero() {
+		ttftMs = int(s.firstTokenTime.Sub(s.startTime).Milliseconds())
 	}
 
-	if err := budget.GlobalLedger.RecordTransaction(tx); err != nil {
-		logging.Logger.Error("failed to record streaming transaction", "error", err)
+	if config.Cfg.Cloud.Enabled {
+		// Cloud telemetry for streams only reports the output tokens and cost
+		cloud.ReportUsage(cloud.UsageReport{
+			KeyID:            s.virtualKeyHash, // In cloud mode, this was set to the Cloud KeyID in middleware
+			Provider:         s.provider,
+			Model:            s.model,
+			PromptTokens:     0,
+			CompletionTokens: s.tokensSoFar,
+			CostUSD:          cost,
+			LatencyMs:        latencyMs,
+			TTFTMs:           ttftMs,
+			FlaggedPII:       false,
+			WasFailover:      false,
+			StatusCode:       200,
+		})
+	} else {
+		tx := budget.Transaction{
+			SessionID:        s.sessionID,
+			VirtualKeyHash:   s.virtualKeyHash,
+			Provider:         s.provider,
+			Model:            s.model,
+			InputTokens:      0, // Input tokens are counted before the stream starts
+			OutputTokens:     s.tokensSoFar,
+			EstimatedCostUSD: cost,
+		}
+
+		if err := budget.GlobalLedger.RecordTransaction(tx); err != nil {
+			logging.Logger.Error("failed to record streaming transaction", "error", err)
+		}
 	}
 
 	logging.Logger.Info("SSE stream complete",
 		"provider", s.provider,
 		"model", s.model,
 		"output_tokens", s.tokensSoFar,
-		"cost_usd", cost)
+		"cost_usd", cost,
+		"latency_ms", latencyMs,
+		"ttft_ms", ttftMs)
 }
 
 // isStreamingRequest checks if the request payload has `"stream": true`
@@ -189,7 +225,7 @@ func isStreamingResponse(res *http.Response) bool {
 }
 
 // wrapStreamingResponse wraps the response body with our SSE interceptor
-func wrapStreamingResponse(res *http.Response, counter *tokenizer.Counter, model, provider, sessionID, virtualKeyHash string) {
+func wrapStreamingResponse(res *http.Response, counter *tokenizer.Counter, model, provider, sessionID, virtualKeyHash string, startTime time.Time) {
 	if !isStreamingResponse(res) {
 		return
 	}
@@ -202,7 +238,7 @@ func wrapStreamingResponse(res *http.Response, counter *tokenizer.Counter, model
 		res.Header.Set("Cache-Control", "no-cache")
 	}
 
-	streamBody := newStreamingResponseBody(res.Body, counter, model, provider, sessionID, virtualKeyHash)
+	streamBody := newStreamingResponseBody(res.Body, counter, model, provider, sessionID, virtualKeyHash, startTime)
 	res.Body = streamBody
 
 	// Disable content length since we're streaming

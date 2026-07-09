@@ -2,11 +2,10 @@
   <img src="./public/tkngatecli.png" alt="Tkngate Banner" width="50%">
 </p>
 
-<h1 align="center">Tkngate: The P2P Token Mesh</h1>
+<h1 align="center">Tkngate: The Enterprise Budget Firewall</h1>
 <p align="center"><strong>The Cloudflare for Autonomous AI Agents</strong></p>
 <p align="center">
   <a href="#install">Install</a> •
-  <a href="#the-tragedy-of-the-commons-the-mesh">The Mesh</a> •
   <a href="#features">Features</a> •
   <a href="#configuration">Configuration</a> •
   <a href="./docs">Docs</a>
@@ -16,29 +15,27 @@
 
 ## What is Tkngate?
 
-Tkngate is an enterprise-grade, zero-knowledge reverse proxy daemon that protects your autonomous agents and LLM budgets. It provides **Strict Rate Limiting**, **Semantic Caching**, and **Universal Failover** out of the box.
+Tkngate is an enterprise-grade, zero-knowledge reverse proxy daemon that protects your autonomous agents and LLM budgets. Every developer building with LangChain, AutoGen, or CrewAI has experienced a runaway `while` loop that burns $50 in OpenAI credits in 10 minutes. 
 
-But its killer feature is the **Deficit Round Robin (DRR) Token Mesh**: *BitTorrent for LLM Tokens.*
+Tkngate solves this by sitting between your agents and your provider (OpenAI, Anthropic, etc.), providing **Strict Rate Limiting**, **Virtual Keys with hard USD limits**, **Semantic Caching**, and a **Pre-flight WAF (Web Application Firewall)** out of the box.
 
-If you run parallelized agents, you will quickly hit OpenAI's rate limits (`429 Too Many Requests`). Tkngate solves this by allowing developers and enterprises to safely pool their unused API keys into a decentralized, zero-knowledge mesh, instantly multiplying bandwidth for everyone.
+* "Stop paying for 429s."
+* "Put hard USD circuit breakers on your autonomous agents."
+* "Cache redundant agent reasoning loops for $0.00."
 
 ---
 
-## The Mesh: Stake-and-Slash
+## Zero-Friction SDK Drop-ins
 
-The problem with sharing API keys in a pool is trust. How do you know a rogue node won't use your clean OpenAI key to process ToS-violating prompts, getting your account banned? 
+Tkngate is designed as a drop-in replacement for the official OpenAI SDKs. You don't need to rewrite your agent logic. Just change the `baseURL` to point to localhost:7477 and pass your Virtual Key. 
 
-Tkngate solves this using an **Economic Game Theory Ledger**:
-
-1. **AES-256 Zero-Knowledge Payload**: When you donate an API key, it is encrypted locally. You never see the plaintext prompts passing through your node.
-2. **Pre-flight Moderation WAF**: Every prompt is scanned locally before being routed, protecting against prompt injections and PII leakage.
-3. **The Slash**: If a malicious node somehow bypasses the WAF and OpenAI flags the request, the HTTP response acts as a **Fraud Proof**. The malicious sender's public key is permanently blacklisted globally, and their stake in the mesh is slashed to zero.
+See the [`examples/`](./examples) directory for Python and Node.js integrations.
 
 ---
 
 ## Quick Start (Interactive CLI)
 
-Tkngate is a single binary with zero external dependencies (no Redis or Postgres required out of the box). Version 1.7.0 introduces a robust, interactive CLI loop for managing your mesh and budgets seamlessly.
+Tkngate is a single binary with zero external dependencies (no Redis or Postgres required out of the box). Version 1.9.0 introduces a robust, interactive CLI loop for managing your mesh and budgets seamlessly.
 
 ```bash
 git clone https://github.com/tkngate/tkngate.git

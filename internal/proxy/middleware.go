@@ -13,6 +13,7 @@ import (
 	"tkngate/internal/auth"
 	"tkngate/internal/budget"
 	"tkngate/internal/cache"
+	"tkngate/internal/cloud"
 	"tkngate/internal/compressor"
 	"tkngate/internal/config"
 	"tkngate/internal/limiter"
@@ -52,36 +53,67 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	authHeader := req.Header.Get("Authorization")
 	var authenticatedKeyHash string
 	var sessionID string
+	var piiFlagged bool
+	var wasFailover bool
 	sessionZone := budget.ZoneGreen
 
 	if strings.HasPrefix(authHeader, "Bearer tkngate-sk-") {
 		virtualKey := strings.TrimPrefix(authHeader, "Bearer ")
 
-		keys, err := budget.GlobalLedger.GetVirtualKeys()
-		if err == nil {
-			for _, k := range keys {
-				if auth.VerifyKey(virtualKey, k.KeyHash) {
-					authenticatedKeyHash = k.KeyHash
-					sessionID = k.Name // Map the virtual key name to the session ID for legacy tracking
-					break
+		if config.Cfg.Cloud.Enabled {
+			// CLOUD MODE: Call Next.js API for validation
+			cloudRes, err := cloud.ValidateKey(virtualKey)
+			if err != nil || cloudRes == nil {
+				logging.Logger.Error("Request blocked: Cloud Validation Failed", "error", err)
+				return blockRequest("401 Unauthorized: Invalid Tkngate Virtual Key")
+			}
+			
+			if !cloudRes.Valid {
+				logging.Logger.Error("Request blocked by cloud budget circuit breaker", "keyName", cloudRes.KeyName)
+				return blockRequest(fmt.Sprintf("Virtual Key Budget Exhausted: %s", cloudRes.KeyName))
+			}
+
+			// Validated by Cloud
+			authenticatedKeyHash = cloudRes.KeyID // We use the database ID as the identifier in cloud mode
+			sessionID = cloudRes.KeyName
+			
+			switch cloudRes.Zone {
+			case "RED":
+				sessionZone = budget.ZoneRed
+			case "AMBER":
+				sessionZone = budget.ZoneAmber
+			default:
+				sessionZone = budget.ZoneGreen
+			}
+			
+		} else {
+			// LOCAL MODE: Use SQLite Ledger
+			keys, err := budget.GlobalLedger.GetVirtualKeys()
+			if err == nil {
+				for _, k := range keys {
+					if auth.VerifyKey(virtualKey, k.KeyHash) {
+						authenticatedKeyHash = k.KeyHash
+						sessionID = k.Name // Map the virtual key name to the session ID for legacy tracking
+						break
+					}
 				}
 			}
-		}
 
-		if authenticatedKeyHash == "" {
-			logging.Logger.Error("Request blocked: Invalid Virtual Key provided", "provider", provider)
-			return blockRequest("401 Unauthorized: Invalid Tkngate Virtual Key")
-		}
+			if authenticatedKeyHash == "" {
+				logging.Logger.Error("Request blocked: Invalid Virtual Key provided", "provider", provider)
+				return blockRequest("401 Unauthorized: Invalid Tkngate Virtual Key")
+			}
 
-		// Check the Virtual Key budget
-		sStatus, err := budget.CheckVirtualKeyBudget(authenticatedKeyHash)
-		if err != nil {
-			logging.Logger.Error("virtual key budget check failed", "error", err)
-		} else {
-			sessionZone = sStatus.Zone
-			if sessionZone == budget.ZoneRed {
-				logging.Logger.Error("Request blocked by virtual key budget circuit breaker", "key", sessionID)
-				return blockRequest(fmt.Sprintf("Virtual Key Budget Exhausted: %s", sessionID))
+			// Check the Virtual Key budget
+			sStatus, err := budget.CheckVirtualKeyBudget(authenticatedKeyHash)
+			if err != nil {
+				logging.Logger.Error("virtual key budget check failed", "error", err)
+			} else {
+				sessionZone = sStatus.Zone
+				if sessionZone == budget.ZoneRed {
+					logging.Logger.Error("Request blocked by virtual key budget circuit breaker", "key", sessionID)
+					return blockRequest(fmt.Sprintf("Virtual Key Budget Exhausted: %s", sessionID))
+				}
 			}
 		}
 	} else {
@@ -131,6 +163,7 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		sanitizedBody := waf.RedactPII(inputBody)
 		if len(sanitizedBody) != len(inputBody) || !bytes.Equal(sanitizedBody, inputBody) {
 			logging.Logger.Info("WAF DLP Engine redacted sensitive PII from payload", "session", sessionID)
+			piiFlagged = true
 			inputBody = sanitizedBody
 			req.Body = io.NopCloser(bytes.NewBuffer(inputBody))
 			req.ContentLength = int64(len(inputBody))
@@ -174,7 +207,7 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 	// 2.8. SEMANTIC CACHE CHECK
 	if cache.GlobalCache != nil && len(inputBody) > 0 {
-		if hit := cache.GlobalCache.Get(inputBody); hit != nil {
+		if hit := cache.GlobalCache.Get(canonicalizePayload(inputBody)); hit != nil {
 			logging.Logger.Info("Semantic cache HIT — returning cached response", "provider", provider, "cost_saved", "$0.00")
 			telemetry.CacheHitsTotal.Inc()
 			telemetry.RequestsTotal.WithLabelValues(provider, fmt.Sprintf("%d", hit.StatusCode)).Inc()
@@ -232,9 +265,10 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		if res.StatusCode == http.StatusTooManyRequests {
 			if attempt < maxRetries {
 				logging.Logger.Warn("Intercepted 429 Rate Limit. Auto-Retrying with new key...", "provider", provider, "attempt", attempt+1)
-				// Drain and close the failing response to free the connection
+				// Close the failing response body to free the FD. 
+				// We intentionally don't drain it via io.Copy to avoid goroutine leaks if the upstream stalls.
+				// This prevents connection reuse, but safety is more important during a 429/500.
 				if res.Body != nil {
-					io.Copy(io.Discard, res.Body)
 					res.Body.Close()
 				}
 				continue
@@ -253,6 +287,7 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 			}
 
 			if provider != fallbackProvider {
+				wasFailover = true
 				logging.Logger.Warn("Intercepted severe upstream outage. Engaging Universal API Router Fallback...", "from", provider, "to", fallbackProvider, "status", res.StatusCode)
 
 				// 1. Swap Provider for the next loop iteration (so DRR grabs the new provider's key)
@@ -293,9 +328,8 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 					inputBody = replaceModel(inputBody, "llama3-8b-8192")
 				}
 
-				// Drain failing response
+				// Close failing response
 				if res.Body != nil {
-					io.Copy(io.Discard, res.Body)
 					res.Body.Close()
 				}
 				continue
@@ -315,27 +349,33 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	// The streaming interceptor will count tokens per chunk and enforce budget limits mid-stream.
 	if isStreamingResponse(res) {
 		logging.Logger.Info("SSE streaming response detected — engaging real-time token interceptor", "provider", provider, "model", reqModel)
-		wrapStreamingResponse(res, t.Counter, reqModel, provider, sessionID, authenticatedKeyHash)
+		wrapStreamingResponse(res, t.Counter, reqModel, provider, sessionID, authenticatedKeyHash, start)
 
 		// Record input tokens only (output tokens are counted by the stream interceptor)
 		go func() {
+			latency := time.Since(start)
 			if len(inputBody) > 0 {
 				inTokens := t.Counter.Count(string(inputBody), reqModel)
 				cost := tokenizer.EstimateCost(provider, reqModel, inTokens, 0)
-				tx := budget.Transaction{
-					SessionID:        sessionID,
-					VirtualKeyHash:   authenticatedKeyHash,
-					Provider:         provider,
-					Model:            reqModel,
-					InputTokens:      inTokens,
-					OutputTokens:     0,
-					EstimatedCostUSD: cost,
-				}
-				if err := budget.GlobalLedger.RecordTransaction(tx); err != nil {
-					logging.Logger.Error("failed to record input transaction for stream", "error", err)
+				
+				if config.Cfg.Cloud.Enabled {
+					// We don't report streaming TTFT here because the stream interceptor does it.
+					// We'll just let the stream interceptor report the full cost.
+				} else {
+					tx := budget.Transaction{
+						SessionID:        sessionID,
+						VirtualKeyHash:   authenticatedKeyHash,
+						Provider:         provider,
+						Model:            reqModel,
+						InputTokens:      inTokens,
+						OutputTokens:     0,
+						EstimatedCostUSD: cost,
+					}
+					if err := budget.GlobalLedger.RecordTransaction(tx); err != nil {
+						logging.Logger.Error("failed to record input transaction for stream", "error", err)
+					}
 				}
 			}
-			latency := time.Since(start)
 			logging.Logger.Info("SSE stream initiated",
 				"provider", provider,
 				"model", reqModel,
@@ -355,7 +395,7 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		// 4.5. STORE IN SEMANTIC CACHE (only on success)
 		if cache.GlobalCache != nil && res.StatusCode >= 200 && res.StatusCode < 300 && len(inputBody) > 0 {
 			cost := tokenizer.EstimateCost(provider, reqModel, t.Counter.Count(string(inputBody), reqModel), t.Counter.Count(string(outputBody), reqModel))
-			cache.GlobalCache.Put(inputBody, outputBody, res.StatusCode, cost)
+			cache.GlobalCache.Put(canonicalizePayload(inputBody), outputBody, res.StatusCode, cost)
 			res.Header.Set("X-Tkngate-Cache", "MISS")
 		}
 
@@ -372,25 +412,41 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 			}
 
 			cost := tokenizer.EstimateCost(provider, reqModel, inTokens, outTokens)
+			latency := time.Since(start)
 
-			tx := budget.Transaction{
-				SessionID:        sessionID,
-				VirtualKeyHash:   authenticatedKeyHash,
-				Provider:         provider,
-				Model:            reqModel,
-				InputTokens:      inTokens,
-				OutputTokens:     outTokens,
-				EstimatedCostUSD: cost,
-			}
-
-			if err := budget.GlobalLedger.RecordTransaction(tx); err != nil {
-				logging.Logger.Error("failed to record transaction", "error", err)
+			if config.Cfg.Cloud.Enabled {
+				// We don't have true TTFT for non-streaming, so we just use full latency
+				cloud.ReportUsage(cloud.UsageReport{
+					KeyID:            authenticatedKeyHash, // mapped to cloudKeyID
+					Provider:         provider,
+					Model:            reqModel,
+					PromptTokens:     inTokens,
+					CompletionTokens: outTokens,
+					CostUSD:          cost,
+					LatencyMs:        int(latency.Milliseconds()),
+					TTFTMs:           int(latency.Milliseconds()), 
+					FlaggedPII:       piiFlagged,
+					WasFailover:      wasFailover,
+					StatusCode:       res.StatusCode,
+				})
+			} else {
+				tx := budget.Transaction{
+					SessionID:        sessionID,
+					VirtualKeyHash:   authenticatedKeyHash,
+					Provider:         provider,
+					Model:            reqModel,
+					InputTokens:      inTokens,
+					OutputTokens:     outTokens,
+					EstimatedCostUSD: cost,
+				}
+				if err := budget.GlobalLedger.RecordTransaction(tx); err != nil {
+					logging.Logger.Error("failed to record transaction", "error", err)
+				}
 			}
 
 			telemetry.RequestsTotal.WithLabelValues(provider, fmt.Sprintf("%d", res.StatusCode)).Inc()
 			telemetry.TokensConsumedTotal.Add(float64(inTokens + outTokens))
 
-			latency := time.Since(start)
 			logging.Logger.Info("Request handled",
 				"provider", provider,
 				"model", reqModel,
@@ -533,5 +589,25 @@ func compressPayload(payload []byte) []byte {
 		}
 	}
 
+	return payload
+}
+
+func canonicalizePayload(payload []byte) []byte {
+	var data map[string]interface{}
+	if err := json.Unmarshal(payload, &data); err != nil {
+		return payload
+	}
+	
+	canonical := make(map[string]interface{})
+	if model, ok := data["model"]; ok {
+		canonical["model"] = model
+	}
+	if messages, ok := data["messages"]; ok {
+		canonical["messages"] = messages
+	}
+	
+	if newPayload, err := json.Marshal(canonical); err == nil {
+		return newPayload
+	}
 	return payload
 }

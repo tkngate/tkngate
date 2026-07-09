@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.9.0] - Enterprise SDKs & Critical Stability Fixes
+### Added
+- **Official SDK Wrappers**: Zero-friction drop-in SDK wrappers for Python (`tkngate`) and Node.js (`tkngate`). 
+- **Tests**: Introduced `httptest` unit tests for core proxy middleware to guarantee failovers and limits under load.
+
+### Fixed
+- **Semantic Cache Canonicalization**: Fixed a bug where identical prompts missed the cache if stochastic parameters like `temperature` were changed. The cache now correctly extracts and hashes only the `messages` array.
+- **SQLite Database Locking**: Enabled Write-Ahead Logging (WAL) mode in the local ledger to resolve `database is locked` errors during high-concurrency agent loops.
+- **Streaming Telemetry Accuracy**: Fixed an issue where TTFT (Time To First Token) and Latency were reported as 0ms for streaming responses.
+
+### Changed
+- **Fairness Engine Configuration**: The Deficit Round Robin free-rider limit is no longer hardcoded at 10,000 tokens. It is now configurable via `tkngate.yaml`.
+- **Wedge Pitch**: Updated project documentation to emphasize the Enterprise Budget Firewall and Semantic Caching capabilities over the P2P Mesh.
+
+## [v1.8.0] - Branding & Assets 
+### Added
+- **TrueColor Branding**: Migrated CLI output to fully support 24-bit TrueColor RGB styles,"Vintage Brutalist" aesthetic (#b89752 Gold and #162b1d Forest Green).
+### Fixed
+- **WAF Regex Order Issue**: Resolved a non-deterministic map iteration bug in the `RedactPII` WAF engine that misclassified JSON Web Tokens (JWT) as generic environment secrets.
+- **Telemetry Auth Mismatch**: Aligned the local dashboard telemetry endpoints to strictly expect a 32-character `TKNGATE_MASTER_KEY` Bearer token.
+
 ## [v1.7.0] - Enterprise Observability & Launch Readiness
 ### Added
 - **Prometheus Metrics**: Native `/metrics` endpoint exposing `tkngate_requests_total`, `tkngate_tokens_consumed_total`, `tkngate_cache_hits_total`, and `tkngate_waf_intercepts_total` for Grafana/Datadog integration.

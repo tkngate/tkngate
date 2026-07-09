@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync"
 	"tkngate/internal/budget"
+	"tkngate/internal/config"
 	"tkngate/internal/crypto"
 	"tkngate/internal/mesh"
 )
@@ -41,7 +42,7 @@ func (d *DRREngine) GetNextKey(provider string, sessionID string, estimatedToken
 	defer d.mu.Unlock()
 
 	// 1. BitTorrent Fairness Engine (Free-Rider Limit)
-	if d.sessionUsage[sessionID] > 10000 {
+	if d.sessionUsage[sessionID] > config.Cfg.Mesh.FreeRiderLimit {
 		return "", fmt.Errorf("Fairness Engine: Token bucket exhausted for free-rider session %s. Please donate keys to increase your priority limit", sessionID)
 	}
 

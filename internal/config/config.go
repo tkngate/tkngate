@@ -17,6 +17,7 @@ type Config struct {
 	Shadow     ShadowConfig              `mapstructure:"shadow"`
 	RateLimit  RateLimitConfig           `mapstructure:"rate_limit"`
 	Mesh       MeshConfig                `mapstructure:"mesh"`
+	Cloud      CloudConfig               `mapstructure:"cloud"`
 }
 
 type ServerConfig struct {
@@ -80,6 +81,13 @@ type MeshConfig struct {
 	SlashPenalty        float64 `mapstructure:"slash_penalty"`
 	BlacklistThreshold  float64 `mapstructure:"blacklist_threshold"`
 	PremiumTrustMinimum float64 `mapstructure:"premium_trust_minimum"`
+	FreeRiderLimit      int     `mapstructure:"free_rider_limit"`
+}
+
+type CloudConfig struct {
+	Enabled bool   `mapstructure:"enabled"`
+	APIURL  string `mapstructure:"api_url"`
+	Secret  string `mapstructure:"secret"`
 }
 
 var Cfg Config
@@ -166,6 +174,9 @@ func validateConfig() error {
 	}
 	if Cfg.Mesh.PremiumTrustMinimum == 0 {
 		Cfg.Mesh.PremiumTrustMinimum = 80.0 // Need 80+ for premium keys
+	}
+	if Cfg.Mesh.FreeRiderLimit == 0 {
+		Cfg.Mesh.FreeRiderLimit = 10000 // Default 10k token limit for free riders
 	}
 
 	return nil
