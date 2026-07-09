@@ -13,6 +13,7 @@ import (
 	"tkngate/internal/budget"
 	"tkngate/internal/cache"
 	"tkngate/internal/logging"
+	"tkngate/internal/mesh"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
@@ -34,6 +35,7 @@ func StartTelemetryServer(host string, port int) error {
 	mux.HandleFunc("/api/v1/sessions", withCORS(withAuth(handleSessions)))
 	mux.HandleFunc("/api/v1/pool", withCORS(withAuth(handlePool)))
 	mux.HandleFunc("/api/v1/mesh/stats", withCORS(withAuth(handleMeshStats)))
+	mux.HandleFunc("/api/v1/mesh/reputation", withCORS(withAuth(handleMeshReputation)))
 	mux.HandleFunc("/api/v1/vkeys", withCORS(withAuth(handleVirtualKeys)))
 	mux.Handle("/metrics", promhttp.Handler())
 
@@ -221,6 +223,26 @@ func handleMeshStats(w http.ResponseWriter, r *http.Request) {
 		"active_nodes":           activeNodes,
 		"network_health":         health,
 		"timestamp":              time.Now(),
+	})
+}
+
+func handleMeshReputation(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if mesh.GlobalReputation == nil {
+		http.Error(w, `{"error":"mesh reputation system is disabled"}`, http.StatusServiceUnavailable)
+		return
+	}
+
+	reputations := mesh.GlobalReputation.GetAllReputations()
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"reputations": reputations,
+		"timestamp":   time.Now(),
 	})
 }
 

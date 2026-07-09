@@ -64,4 +64,22 @@ var (
 			Help: "The number of currently active in-flight requests to the proxy",
 		},
 	)
+
+	// MeshSlashesTotal tracks the number of times a node's reputation was slashed.
+	MeshSlashesTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "tkngate_mesh_slashes_total",
+			Help: "Total number of reputation slashes applied to nodes",
+		},
+		[]string{"reason"},
+	)
+
+	// MeshTrustScore tracks the current reputation score of a node.
+	MeshTrustScore = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "tkngate_mesh_trust_score",
+			Help: "Current reputation trust score of a node",
+		},
+		[]string{"node_id"},
+	)
 )

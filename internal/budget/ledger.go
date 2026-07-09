@@ -17,6 +17,11 @@ type Ledger struct {
 
 var GlobalLedger *Ledger
 
+// DB exposes the underlying database handle for shared use (e.g., mesh reputation tables).
+func (l *Ledger) DB() *sql.DB {
+	return l.db
+}
+
 func InitLedger() error {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {

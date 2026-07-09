@@ -18,6 +18,7 @@ import (
 	"tkngate/internal/config"
 	"tkngate/internal/limiter"
 	"tkngate/internal/logging"
+	"tkngate/internal/mesh"
 	"tkngate/internal/pool"
 	"tkngate/internal/telemetry"
 	"tkngate/internal/tokenizer"
@@ -157,6 +158,12 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		// 2.1. AI-WAF: Prompt Injection Firewall
 		if err := waf.DetectJailbreak(inputBody); err != nil {
 			logging.Logger.Error("WAF Blocked Request", "reason", err, "session", sessionID)
+			if mesh.GlobalReputation != nil && sessionID != "" {
+				mesh.GlobalReputation.Slash(sessionID, "WAF Jailbreak Detected")
+				if telemetry.MeshSlashesTotal != nil {
+					telemetry.MeshSlashesTotal.WithLabelValues("waf_jailbreak").Inc()
+				}
+			}
 			telemetry.WafInterceptsTotal.WithLabelValues("jailbreak").Inc()
 			telemetry.RequestsTotal.WithLabelValues(provider, "403").Inc()
 			return blockRequest(fmt.Sprintf("WAF Blocked Request: %v", err))
@@ -170,6 +177,31 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 			inputBody = sanitizedBody
 			req.Body = io.NopCloser(bytes.NewBuffer(inputBody))
 			req.ContentLength = int64(len(inputBody))
+		}
+
+		// 2.3. Preflight Moderation Hook
+		if config.Cfg.Mesh.ReputationEnabled && config.Cfg.Mesh.PreflightModeration {
+			promptStr := extractPromptString(inputBody)
+			if promptStr != "" {
+				safe, err := mesh.CheckModeration(promptStr)
+				if err != nil {
+					// Fail closed for safety
+					logging.Logger.Error("Preflight moderation failed", "error", err)
+					return blockRequest(fmt.Sprintf("Moderation API Error: %v", err))
+				}
+				if !safe {
+					logging.Logger.Error("Moderation Flagged Request", "session", sessionID)
+					if mesh.GlobalReputation != nil && sessionID != "" {
+						mesh.GlobalReputation.Slash(sessionID, "OpenAI Moderation Flagged")
+						if telemetry.MeshSlashesTotal != nil {
+							telemetry.MeshSlashesTotal.WithLabelValues("openai_moderation").Inc()
+						}
+					}
+					telemetry.WafInterceptsTotal.WithLabelValues("moderation").Inc()
+					telemetry.RequestsTotal.WithLabelValues(provider, "403").Inc()
+					return blockRequest("Request blocked by Preflight Moderation Engine")
+				}
+			}
 		}
 
 		reqModel = extractModel(inputBody)
@@ -454,6 +486,10 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 				telemetry.VirtualKeySpend.WithLabelValues(authenticatedKeyHash).Add(cost)
 			}
 
+			if res.StatusCode >= 200 && res.StatusCode < 300 && mesh.GlobalReputation != nil && sessionID != "" {
+				mesh.GlobalReputation.RecordSuccess(sessionID)
+			}
+
 			logging.Logger.Info("Request handled",
 				"provider", provider,
 				"model", reqModel,
@@ -626,4 +662,28 @@ func canonicalizePayload(payload []byte) []byte {
 		return newPayload
 	}
 	return payload
+}
+
+func extractPromptString(payload []byte) string {
+	var data map[string]interface{}
+	if err := json.Unmarshal(payload, &data); err != nil {
+		return ""
+	}
+
+	messages, ok := data["messages"].([]interface{})
+	if !ok || len(messages) == 0 {
+		return ""
+	}
+
+	lastMsg, ok := messages[len(messages)-1].(map[string]interface{})
+	if !ok {
+		return ""
+	}
+
+	content, ok := lastMsg["content"].(string)
+	if !ok {
+		return ""
+	}
+
+	return content
 }

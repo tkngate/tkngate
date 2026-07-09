@@ -76,6 +76,21 @@ func (d *DRREngine) GetNextKey(provider string, sessionID string, estimatedToken
 
 		plaintextKey, err := crypto.Decrypt(node.BlindedKeyHash)
 		if err == nil {
+			// 3. Mesh Premium Gate: Prevent NEW/TRUSTED from draining PREMIUM keys
+			if mesh.GlobalReputation != nil && sessionID != "" {
+				tier := mesh.GlobalReputation.GetTier(sessionID)
+				
+				// A simple heuristic: if a node has > 10M TPM, we consider it a "premium" key.
+				// Untrusted users shouldn't route through enterprise-grade keys.
+				isPremiumKey := node.MeasuredTpmLimit > 10000000
+				
+				if isPremiumKey && tier != mesh.TierPremium {
+					// Skip this key, the requester doesn't have enough trust
+					idx = d.currentIndex[provider]
+					continue
+				}
+			}
+
 			// Decrement quota from the pool key
 			budget.GlobalLedger.DecrementPoolQuota(node.NodeID, estimatedTokens)
 
