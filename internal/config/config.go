@@ -88,6 +88,7 @@ type MeshConfig struct {
 	BlacklistThreshold  float64 `mapstructure:"blacklist_threshold"`
 	PremiumTrustMinimum float64 `mapstructure:"premium_trust_minimum"`
 	FreeRiderLimit      int     `mapstructure:"free_rider_limit"`
+	StrictZKPMode       bool    `mapstructure:"strict_zkp_mode"`
 }
 
 type CloudConfig struct {

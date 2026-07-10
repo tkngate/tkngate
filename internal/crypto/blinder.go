@@ -20,7 +20,7 @@ func InitCrypto() error {
 
 	key := []byte(keyStr)
 	if len(key) != 32 {
-		return fmt.Errorf("FATAL SECURITY ERROR: TKNGATE_MASTER_KEY must be exactly 32 bytes (characters). Current length is %d", len(key))
+		return fmt.Errorf("FATAL SECURITY ERROR: TKNGATE_MASTER_KEY must be exactly 32 hex characters (e.g. from 'tkngate generate-master-key'). Current length is %d", len(key))
 	}
 
 	masterKey = key

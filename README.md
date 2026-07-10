@@ -23,6 +23,7 @@ Tkngate solves this by sitting between your agents and your provider (OpenAI, An
 * "Put hard USD circuit breakers on your autonomous agents."
 * "Cache redundant agent reasoning loops for $0.00."
 * "Create Multi-Tenant Organizations and restrict keys using RBAC."
+* "Prove your prompts are safe with Zero-Knowledge (ZK-SNARK) AI-WAF attestations."
 
 ---
 

@@ -68,10 +68,10 @@ func EstimateCost(provider string, model string, inputTokens, outputTokens int) 
 
 	switch provider {
 	case "openai":
-		if strings.Contains(model, "gpt-6o") {
+		if strings.Contains(model, "gpt-5.6") {
 			inputPrice = 0.005
 			outputPrice = 0.015
-		} else if strings.Contains(model, "gpt-5.5-turbo") {
+		} else if strings.Contains(model, "gpt-5.6-turbo") {
 			inputPrice = 0.0005
 			outputPrice = 0.0015
 		} else {

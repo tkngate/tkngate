@@ -39,7 +39,7 @@ func TestEstimateCost(t *testing.T) {
 		output       int
 		expectedCost float64
 	}{
-		{"openai", "gpt-6o", 1000, 1000, 0.020},                // 0.005 + 0.015
+		{"openai", "gpt-5.6", 1000, 1000, 0.020},                // 0.005 + 0.015
 		{"anthropic", "claude-4.5-sonnet", 1000, 1000, 0.018},  // 0.003 + 0.015
 		{"deepseek", "deepseek-chat-v3", 10000, 10000, 0.0042}, // 0.0014 + 0.0028
 	}

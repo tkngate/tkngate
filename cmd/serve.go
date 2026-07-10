@@ -17,6 +17,7 @@ import (
 	"tkngate/internal/pool"
 	"tkngate/internal/proxy"
 	"tkngate/internal/waf"
+	"tkngate/internal/zkp"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
@@ -76,6 +77,18 @@ var serveCmd = &cobra.Command{
 			spinner.Success("Reputation Engine active")
 		} else {
 			pterm.Info.Println("Reputation Engine disabled")
+		}
+
+		if config.Cfg.Mesh.StrictZKPMode {
+			spinner, _ = pterm.DefaultSpinner.Start("Compiling ZK-SNARK circuit (Groth16)...")
+			if err := zkp.Setup(); err != nil {
+				spinner.Fail("Failed to compile ZKP circuit: ", err.Error())
+				logging.Logger.Error("failed to init ZKP engine", "error", err)
+				os.Exit(1)
+			}
+			spinner.Success("ZK-SNARK Engine active (Groth16 BN254)")
+		} else {
+			pterm.Info.Println("ZK-SNARK Engine disabled (enable with mesh.strict_zkp_mode)")
 		}
 
 		limiter.GlobalManager.StartCleanup()

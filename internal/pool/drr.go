@@ -2,11 +2,15 @@ package pool
 
 import (
 	"fmt"
+	"math/big"
 	"sync"
 	"tkngate/internal/budget"
 	"tkngate/internal/config"
 	"tkngate/internal/crypto"
 	"tkngate/internal/mesh"
+	"tkngate/internal/zkp"
+
+	"github.com/consensys/gnark/backend/groth16"
 )
 
 type DRREngine struct {
@@ -24,6 +28,30 @@ func InitDRR() {
 		currentIndex: make(map[string]int),
 		sessionUsage: make(map[string]int),
 	}
+}
+
+// VerifyAndRoute is the ZK-SNARK-aware entry point for the mesh.
+// If StrictZKPMode is enabled in config, this method verifies the
+// zero-knowledge proof before allowing key routing. If disabled,
+// it falls through to the standard GetNextKey.
+func (d *DRREngine) VerifyAndRoute(provider, sessionID string, estimatedTokens int, proof groth16.Proof, nonce *big.Int) (string, error) {
+	if config.Cfg.Mesh.StrictZKPMode {
+		if zkp.GlobalZKP == nil {
+			return "", fmt.Errorf("ZKP engine not initialized but strict_zkp_mode is enabled")
+		}
+		if proof == nil {
+			return "", fmt.Errorf("ZKP: strict mode enabled — proof required but not provided")
+		}
+		if err := zkp.GlobalZKP.VerifyProof(proof, nonce); err != nil {
+			// Slash the sender's reputation for submitting an invalid proof.
+			if mesh.GlobalReputation != nil && sessionID != "" {
+				mesh.GlobalReputation.Slash(sessionID, "invalid ZKP proof")
+			}
+			return "", fmt.Errorf("ZKP: proof verification failed for session %s — request blocked", sessionID)
+		}
+	}
+
+	return d.GetNextKey(provider, sessionID, estimatedTokens)
 }
 
 // GetNextKey rotates through donated keys for a provider using Deficit Round Robin.
@@ -106,3 +134,4 @@ func (d *DRREngine) GetNextKey(provider string, sessionID string, estimatedToken
 
 	return "", fmt.Errorf("failed to decrypt any pool keys")
 }
+

@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.1.0] - ZK-SNARK AI-WAF Attestations
+### Added
+- **Zero-Knowledge Proof Engine**: Integrated `gnark` (Groth16 BN254) to generate and verify ZK-SNARKs natively in Go. Clients can now cryptographically prove a prompt is safe without revealing the prompt's content.
+- **WafCircuit**: A new `internal/zkp/circuit.go` defines the arithmetic circuit that attests a prompt hash does not match any blacklisted malicious prompt hashes.
+- **ZKP Engine**: `internal/zkp/engine.go` handles circuit compilation, trusted setup, proof generation (`GenerateProof`), and verification (`VerifyProof`).
+- **Strict ZKP Mode**: Added `mesh.strict_zkp_mode` config flag. When enabled, the DRR Mesh requires a valid ZK-SNARK proof before routing traffic through donated keys. Invalid proofs result in automatic reputation slashing.
+- **`VerifyAndRoute`**: New DRR entry point in `internal/pool/drr.go` that enforces ZKP verification before key routing.
+- **Anti-Replay Nonce**: Each proof is bound to a random attestation nonce, preventing proof reuse across requests.
+- **Unit Tests & Benchmarks**: `circuit_test.go` verifies safe prompts pass, blacklisted prompts fail, and includes `BenchmarkProofGeneration`.
+
+### Dependencies
+- Added `github.com/consensys/gnark v0.15.0`
+- Added `github.com/consensys/gnark-crypto v0.20.1`
+
 ## [v2.0.1] - Multi-Tenant Organizations & RBAC
 ### Added
 - **Organizations**: Created the `tkngate_organizations` SQLite ledger table. You can now create specific budgets for individual teams or projects using `tkngate org create`.
