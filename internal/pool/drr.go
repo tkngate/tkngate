@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"math/big"
 	"sync"
+	"sync/atomic"
 	"tkngate/internal/budget"
 	"tkngate/internal/config"
 	"tkngate/internal/crypto"
 	"tkngate/internal/mesh"
+	"tkngate/internal/telemetry"
 	"tkngate/internal/zkp"
 
 	"github.com/consensys/gnark/backend/groth16"
@@ -37,18 +39,26 @@ func InitDRR() {
 func (d *DRREngine) VerifyAndRoute(provider, sessionID string, estimatedTokens int, proof groth16.Proof, nonce *big.Int) (string, error) {
 	if config.Cfg.Mesh.StrictZKPMode {
 		if zkp.GlobalZKP == nil {
+			telemetry.ZkpFailedTotal.Inc()
+			atomic.AddInt64(&telemetry.RawZkpFailed, 1)
 			return "", fmt.Errorf("ZKP engine not initialized but strict_zkp_mode is enabled")
 		}
 		if proof == nil {
+			telemetry.ZkpFailedTotal.Inc()
+			atomic.AddInt64(&telemetry.RawZkpFailed, 1)
 			return "", fmt.Errorf("ZKP: strict mode enabled — proof required but not provided")
 		}
 		if err := zkp.GlobalZKP.VerifyProof(proof, nonce); err != nil {
+			telemetry.ZkpFailedTotal.Inc()
+			atomic.AddInt64(&telemetry.RawZkpFailed, 1)
 			// Slash the sender's reputation for submitting an invalid proof.
 			if mesh.GlobalReputation != nil && sessionID != "" {
 				mesh.GlobalReputation.Slash(sessionID, "invalid ZKP proof")
 			}
 			return "", fmt.Errorf("ZKP: proof verification failed for session %s — request blocked", sessionID)
 		}
+		telemetry.ZkpVerifiedTotal.Inc()
+		atomic.AddInt64(&telemetry.RawZkpVerified, 1)
 	}
 
 	return d.GetNextKey(provider, sessionID, estimatedTokens)

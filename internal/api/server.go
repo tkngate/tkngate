@@ -9,12 +9,15 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"tkngate/internal/budget"
 	"tkngate/internal/cache"
+	"tkngate/internal/config"
 	"tkngate/internal/logging"
 	"tkngate/internal/mesh"
+	"tkngate/internal/telemetry"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
@@ -39,6 +42,7 @@ func StartTelemetryServer(host string, port int) error {
 	mux.HandleFunc("/api/v1/mesh/reputation", withCORS(withAuth(handleMeshReputation)))
 	mux.HandleFunc("/api/v1/vkeys", withCORS(withAuth(handleVirtualKeys)))
 	mux.HandleFunc("/api/v1/orgs", withCORS(withAuth(handleOrgs)))
+	mux.HandleFunc("/api/v1/security", withCORS(withAuth(handleSecurity)))
 	mux.Handle("/metrics", promhttp.Handler())
 
 	// Serve the embedded React Dashboard
@@ -160,6 +164,24 @@ func handleOverview(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
+}
+
+func handleSecurity(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"waf_enabled":       config.Cfg.WAF.Enabled,
+		"strict_zkp_mode":   config.Cfg.Mesh.StrictZKPMode,
+		"dlp_redaction":     config.Cfg.WAF.Enabled,
+		"prompt_injection":  config.Cfg.WAF.Enabled,
+		"waf_blocks_total":  atomic.LoadInt64(&telemetry.RawWafBlocks),
+		"zkp_verified_total": atomic.LoadInt64(&telemetry.RawZkpVerified),
+		"zkp_failed_total":  atomic.LoadInt64(&telemetry.RawZkpFailed),
+	})
 }
 
 func handleSessions(w http.ResponseWriter, r *http.Request) {

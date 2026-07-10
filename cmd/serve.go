@@ -133,7 +133,7 @@ var serveCmd = &cobra.Command{
 		highlight := pterm.NewRGBStyle(pterm.NewRGB(22, 43, 29), pterm.NewRGB(184, 151, 82)).Sprint
 		fmt.Printf("%s %s\n", Gold("PROXY ->"), highlight("http://"+addr))
 		if config.Cfg.Telemetry.Enabled {
-			fmt.Printf("%s %s\n", Gold("ADMIN ->"), highlight(fmt.Sprintf("http://%s:%d", config.Cfg.Telemetry.Host, config.Cfg.Telemetry.Port)))
+			fmt.Printf("%s %s\n", Gold("DASHBOARD ->"), highlight(fmt.Sprintf("http://%s:%d", config.Cfg.Telemetry.Host, config.Cfg.Telemetry.Port)))
 		}
 		fmt.Println()
 		fmt.Println(Gold("■ ENGINE ONLINE. AWAITING SWARM."))

@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"net/http"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"tkngate/internal/auth"
@@ -203,6 +204,7 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 				}
 			}
 			telemetry.WafInterceptsTotal.WithLabelValues("jailbreak").Inc()
+			atomic.AddInt64(&telemetry.RawWafBlocks, 1)
 			telemetry.RequestsTotal.WithLabelValues(provider, "403").Inc()
 			return blockRequest(fmt.Sprintf("WAF Blocked Request: %v", err))
 		}
@@ -236,6 +238,7 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 						}
 					}
 					telemetry.WafInterceptsTotal.WithLabelValues("moderation").Inc()
+					atomic.AddInt64(&telemetry.RawWafBlocks, 1)
 					telemetry.RequestsTotal.WithLabelValues(provider, "403").Inc()
 					return blockRequest("Request blocked by Preflight Moderation Engine")
 				}
