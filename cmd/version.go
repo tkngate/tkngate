@@ -9,7 +9,7 @@ import (
 
 // These variables are injected at build time using -ldflags
 var (
-	Version   = "v2.0.1"
+	Version   = "v2.1.0"
 	BuildDate = "2026-07-10"
 )
 

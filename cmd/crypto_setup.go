@@ -50,6 +50,10 @@ func ensureCryptoInitialized() error {
 
 	case "Enter an existing Master Key manually":
 		key, _ := pterm.DefaultInteractiveTextInput.WithMask("*").Show("Enter your 32-character TKNGATE_MASTER_KEY")
+		if len(key) != 32 {
+			pterm.Error.Println("Invalid key length. Must be exactly 32 hex characters.")
+			return ensureCryptoInitialized() // Retry
+		}
 		os.Setenv("TKNGATE_MASTER_KEY", key)
 
 	default:

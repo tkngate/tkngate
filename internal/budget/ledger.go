@@ -232,14 +232,14 @@ func (l *Ledger) DecrementPoolQuota(nodeID string, tokens int) {
 // v1.3.0: Virtual Key Management
 
 type VirtualKeyRecord struct {
-	ID               int
-	KeyHash          string
-	Name             string
-	AllocatedBudget  float64
-	ConsumedBudget   float64
-	OrgID            int
-	AllowedProviders string
-	CreatedAt        string
+	ID               int     `json:"id"`
+	KeyHash          string  `json:"key_hash"`
+	Name             string  `json:"name"`
+	AllocatedBudget  float64 `json:"allocated_budget_usd"`
+	ConsumedBudget   float64 `json:"consumed_budget_usd"`
+	OrgID            int     `json:"org_id"`
+	AllowedProviders string  `json:"allowed_providers"`
+	CreatedAt        string  `json:"created_at"`
 }
 
 type OrganizationRecord struct {

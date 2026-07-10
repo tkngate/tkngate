@@ -38,6 +38,7 @@ func StartTelemetryServer(host string, port int) error {
 	mux.HandleFunc("/api/v1/mesh/stats", withCORS(withAuth(handleMeshStats)))
 	mux.HandleFunc("/api/v1/mesh/reputation", withCORS(withAuth(handleMeshReputation)))
 	mux.HandleFunc("/api/v1/vkeys", withCORS(withAuth(handleVirtualKeys)))
+	mux.HandleFunc("/api/v1/orgs", withCORS(withAuth(handleOrgs)))
 	mux.Handle("/metrics", promhttp.Handler())
 
 	// Serve the embedded React Dashboard
@@ -272,6 +273,47 @@ func handleMeshReputation(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func handleOrgs(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case "GET":
+		orgs, err := budget.GlobalLedger.GetOrganizations()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"organizations": orgs,
+		})
+
+	case "POST":
+		var req struct {
+			Name     string  `json:"name"`
+			LimitUSD float64 `json:"limit_usd"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Name == "" {
+			http.Error(w, `{"error":"name and limit_usd required"}`, http.StatusBadRequest)
+			return
+		}
+		if req.LimitUSD <= 0 {
+			req.LimitUSD = 100.0
+		}
+		if err := budget.GlobalLedger.CreateOrganization(req.Name, req.LimitUSD); err != nil {
+			http.Error(w, `{"error":"organization already exists or db error"}`, http.StatusConflict)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"status": "created",
+			"name":   req.Name,
+		})
+
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
 func handleVirtualKeys(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "GET":
@@ -287,8 +329,10 @@ func handleVirtualKeys(w http.ResponseWriter, r *http.Request) {
 
 	case "POST":
 		var req struct {
-			Name   string  `json:"name"`
-			Budget float64 `json:"budget_usd"`
+			Name             string  `json:"name"`
+			Budget           float64 `json:"budget_usd"`
+			OrgID            int     `json:"org_id"`
+			AllowedProviders string  `json:"allowed_providers"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Name == "" {
 			http.Error(w, `{"error":"name and budget_usd required"}`, http.StatusBadRequest)
@@ -305,7 +349,7 @@ func handleVirtualKeys(w http.ResponseWriter, r *http.Request) {
 		}
 		plainKey := fmt.Sprintf("tkngate-sk-%x", buf)
 		keyHash := fmt.Sprintf("%x", sha256Sum([]byte(plainKey)))
-		if err := budget.GlobalLedger.RegisterVirtualKey(keyHash, req.Name, req.Budget, 0, ""); err != nil {
+		if err := budget.GlobalLedger.RegisterVirtualKey(keyHash, req.Name, req.Budget, req.OrgID, req.AllowedProviders); err != nil {
 			http.Error(w, `{"error":"key already exists or db error"}`, http.StatusConflict)
 			return
 		}

@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"tkngate/internal/budget"
+	"tkngate/internal/config"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
@@ -21,6 +22,10 @@ var statusCmd = &cobra.Command{
 	Short: "Shows current spend vs. limits for each provider",
 	Run: func(cmd *cobra.Command, args []string) {
 		spinner, _ := pterm.DefaultSpinner.Start("Fetching budget data...")
+		if err := config.LoadConfig(); err != nil {
+			spinner.Fail("Failed to load config: ", err.Error())
+			return
+		}
 		if err := budget.InitLedger(); err != nil {
 			spinner.Fail("Failed to open ledger: ", err.Error())
 			return
@@ -45,7 +50,17 @@ var resetCmd = &cobra.Command{
 	Use:   "reset",
 	Short: "Manually resets the budget ledger",
 	Run: func(cmd *cobra.Command, args []string) {
+		confirm, _ := pterm.DefaultInteractiveConfirm.Show("Are you sure you want to reset the budget ledger? This will erase all spend history.")
+		if !confirm {
+			pterm.Info.Println("Reset aborted.")
+			return
+		}
+
 		spinner, _ := pterm.DefaultSpinner.Start("Resetting budget ledger...")
+		if err := config.LoadConfig(); err != nil {
+			spinner.Fail("Failed to load config: ", err.Error())
+			return
+		}
 		if err := budget.InitLedger(); err != nil {
 			spinner.Fail("Failed to open ledger: ", err.Error())
 			return
