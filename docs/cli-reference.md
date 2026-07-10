@@ -82,3 +82,34 @@ tkngate pool donate "openai"
 # Or scriptable mode (Warning: may log in bash history)
 tkngate pool donate "openai" --key "sk-proj-YOUR_EXTRA_KEY"
 ```
+
+## AI Web Application Firewall (WAF) & ZK-SNARKs
+
+Tkngate includes a built-in pre-flight AI-WAF to intercept prompt injections, redact PII, and verify ZK-SNARK attestations from clients.
+
+### `tkngate waf status`
+Displays the current status of the AI-WAF engine, whether it is enabled in `tkngate.yaml`, and summarizes active rule sets.
+```bash
+tkngate waf status
+```
+
+### `tkngate waf rules`
+Lists all active detection rules, including known prompt injection signatures, custom regex blocklists from `tkngate.yaml`, and the active PII redaction (DLP) categories.
+```bash
+tkngate waf rules
+```
+
+### `tkngate waf prove`
+Generates a zero-knowledge proof (ZK-SNARK) attesting that a specific prompt does *not* violate any server-side blacklisted patterns. This is intended to be used by clients running a local Tkngate daemon.
+```bash
+tkngate waf prove "Translate this text to French."
+
+# Output:
+# X-Tkngate-ZKP: <base64-proof>:<base64-nonce>
+```
+
+### `tkngate waf verify`
+Mathematically verifies a ZK-SNARK proof header (`X-Tkngate-ZKP`) without needing to see the original prompt. Useful for debugging rejected requests.
+```bash
+tkngate waf verify "<base64-proof>:<base64-nonce>"
+```

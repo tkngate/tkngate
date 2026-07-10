@@ -79,10 +79,10 @@ func Setup() error {
 	return nil
 }
 
-// GenerateProof takes a plaintext prompt, hashes it using MiMC, and generates
-// a Groth16 zero-knowledge proof attesting that the prompt does not match
-// any blacklisted hash. Returns the serialized proof and public witness.
-func (e *Engine) GenerateProof(prompt string) (groth16.Proof, error) {
+// GenerateProof takes a plaintext prompt, hashes it using SHA-256, and generates
+// a Groth16 zero-knowledge proof attesting that the prompt does not match any
+// blacklisted hash. Returns the serialized proof and public witness.
+func (e *Engine) GenerateProof(prompt string) (groth16.Proof, *big.Int, error) {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 
@@ -94,13 +94,9 @@ func (e *Engine) GenerateProof(prompt string) (groth16.Proof, error) {
 	// 2. Generate a random attestation nonce (anti-replay).
 	nonceBuf := make([]byte, 16)
 	if _, err := rand.Read(nonceBuf); err != nil {
-		return nil, fmt.Errorf("zkp: failed to generate nonce: %w", err)
+		return nil, nil, fmt.Errorf("zkp: failed to generate nonce: %w", err)
 	}
 	nonce := new(big.Int).SetBytes(nonceBuf)
-	// Ensure nonce is non-zero (circuit constraint).
-	if nonce.Sign() == 0 {
-		nonce.SetInt64(1)
-	}
 
 	// 3. Build the witness (private + public inputs).
 	assignment := &WafCircuit{
@@ -113,16 +109,16 @@ func (e *Engine) GenerateProof(prompt string) (groth16.Proof, error) {
 
 	witness, err := frontend.NewWitness(assignment, ecc.BN254.ScalarField())
 	if err != nil {
-		return nil, fmt.Errorf("zkp: witness creation failed: %w", err)
+		return nil, nil, fmt.Errorf("zkp: failed to build witness: %w", err)
 	}
 
-	// 4. Generate the Groth16 proof.
+	// 4. Generate the proof.
 	proof, err := groth16.Prove(e.cs, e.pk, witness)
 	if err != nil {
-		return nil, fmt.Errorf("zkp: proof generation failed (prompt may match blacklist): %w", err)
+		return nil, nil, fmt.Errorf("zkp: proof generation failed (prompt may match blacklist): %w", err)
 	}
 
-	return proof, nil
+	return proof, nonce, nil
 }
 
 // VerifyProof takes a Groth16 proof and verifies it against the public
