@@ -6,6 +6,12 @@ import (
 )
 
 var (
+	RawWafBlocks   int64
+	RawZkpVerified int64
+	RawZkpFailed   int64
+)
+
+var (
 	// RequestsTotal tracks all incoming LLM proxy requests.
 	RequestsTotal = promauto.NewCounterVec(
 		prometheus.CounterOpts{
@@ -81,5 +87,21 @@ var (
 			Help: "Current reputation trust score of a node",
 		},
 		[]string{"node_id"},
+	)
+
+	// ZkpVerifiedTotal tracks the number of valid ZK-SNARK attestations processed.
+	ZkpVerifiedTotal = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Name: "tkngate_zkp_verified_total",
+			Help: "Total number of valid ZK-SNARK proofs verified",
+		},
+	)
+
+	// ZkpFailedTotal tracks the number of invalid or missing ZK-SNARK attestations rejected.
+	ZkpFailedTotal = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Name: "tkngate_zkp_failed_total",
+			Help: "Total number of invalid ZK-SNARK proofs rejected",
+		},
 	)
 )
