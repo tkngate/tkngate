@@ -24,6 +24,7 @@ Tkngate solves this by sitting between your agents and your provider (OpenAI, An
 * "Cache redundant agent reasoning loops for $0.00."
 * "Create Multi-Tenant Organizations and restrict keys using RBAC."
 * "Prove your prompts are safe with Zero-Knowledge (ZK-SNARK) AI-WAF attestations."
+* "Visualize AI-WAF intercepts and mesh capacity live on the built-in React Dashboard."
 
 ---
 

@@ -18,6 +18,8 @@ tkngate serve
 ```
 *Note: If `TKNGATE_MASTER_KEY` is not set in your environment, the CLI will interactively guide you to generate one instead of crashing.*
 
+Once the server is running, the embedded React Telemetry Dashboard is accessible at `http://127.0.0.1:7478` (or your configured telemetry host/port).
+
 ## Config & Security
 
 ### `tkngate generate-master-key`

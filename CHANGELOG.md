@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.2.0] - AI-WAF & ZKP Dashboard Visualization
+### Added
+- **Security Dashboard Tab**: The embedded React telemetry dashboard (served at `:7478`) now includes a dedicated "Security" tab to visualize AI-WAF rules and ZK-SNARK Attestations.
+- **WAF Intercept Telemetry**: The UI now tracks `WAF Status` and `Total Intercepts` in real-time, pulling directly from the new `RawWafBlocks` atomic telemetry counter.
+- **ZKP Enforcement Telemetry**: Displays whether `Strict ZKP Mode` is ENFORCED or OPTIONAL, and tracks valid proofs vs. rejected attestation attempts.
+- **Bundled Execution**: The React frontend (`tkngate-dashboard`) is now pre-compiled and fully embedded into the Go binary (`tkngate.exe`) via `go:embed`. Running `tkngate serve` spins up the dashboard with zero external dependencies.
+
 ## [v2.1.0] - ZK-SNARK AI-WAF Attestations
 ### Added
 - **Zero-Knowledge Proof Engine**: Integrated `gnark` (Groth16 BN254) to generate and verify ZK-SNARKs natively in Go. Clients can now cryptographically prove a prompt is safe without revealing the prompt's content.
