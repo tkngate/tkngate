@@ -73,12 +73,22 @@ func InitLedger() error {
 		remaining_tokens_quota INTEGER NOT NULL
 	);
 
+	CREATE TABLE IF NOT EXISTS tkngate_organizations (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		name TEXT UNIQUE NOT NULL,
+		budget_limit_usd REAL NOT NULL,
+		consumed_usd REAL DEFAULT 0.0,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	);
+
 	CREATE TABLE IF NOT EXISTS tkngate_virtual_keys (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		key_hash TEXT UNIQUE NOT NULL,
 		name TEXT NOT NULL,
 		allocated_budget_usd REAL NOT NULL,
 		consumed_budget_usd REAL DEFAULT 0.0,
+		org_id INTEGER DEFAULT 0,
+		allowed_providers TEXT DEFAULT '',
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
 	`
@@ -88,6 +98,10 @@ func InitLedger() error {
 
 	// Add session_id to existing table if migrating from v0.0.1
 	db.Exec(`ALTER TABLE transactions ADD COLUMN session_id TEXT DEFAULT ''`)
+	
+	// Migrate existing virtual keys for v2.0.0 RBAC
+	db.Exec(`ALTER TABLE tkngate_virtual_keys ADD COLUMN org_id INTEGER DEFAULT 0`)
+	db.Exec(`ALTER TABLE tkngate_virtual_keys ADD COLUMN allowed_providers TEXT DEFAULT ''`)
 
 	GlobalLedger = &Ledger{db: db}
 	return nil
@@ -111,6 +125,8 @@ func (l *Ledger) RecordTransaction(tx Transaction) error {
 
 	if tx.VirtualKeyHash != "" {
 		_, err = l.db.Exec(`UPDATE tkngate_virtual_keys SET consumed_budget_usd = consumed_budget_usd + ? WHERE key_hash = ?`, tx.EstimatedCostUSD, tx.VirtualKeyHash)
+		// Update organization budget if applicable
+		_, err = l.db.Exec(`UPDATE tkngate_organizations SET consumed_usd = consumed_usd + ? WHERE id = (SELECT org_id FROM tkngate_virtual_keys WHERE key_hash = ?)`, tx.EstimatedCostUSD, tx.VirtualKeyHash)
 	}
 
 	return err
@@ -216,25 +232,61 @@ func (l *Ledger) DecrementPoolQuota(nodeID string, tokens int) {
 // v1.3.0: Virtual Key Management
 
 type VirtualKeyRecord struct {
-	ID              int
-	KeyHash         string
-	Name            string
-	AllocatedBudget float64
-	ConsumedBudget  float64
-	CreatedAt       string
+	ID               int
+	KeyHash          string
+	Name             string
+	AllocatedBudget  float64
+	ConsumedBudget   float64
+	OrgID            int
+	AllowedProviders string
+	CreatedAt        string
 }
 
-func (l *Ledger) RegisterVirtualKey(keyHash, name string, allocatedBudget float64) error {
+type OrganizationRecord struct {
+	ID             int
+	Name           string
+	BudgetLimitUSD float64
+	ConsumedUSD    float64
+	CreatedAt      string
+}
+
+func (l *Ledger) CreateOrganization(name string, limit float64) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	_, err := l.db.Exec(`INSERT INTO tkngate_virtual_keys (key_hash, name, allocated_budget_usd) VALUES (?, ?, ?)`, keyHash, name, allocatedBudget)
+	_, err := l.db.Exec(`INSERT INTO tkngate_organizations (name, budget_limit_usd) VALUES (?, ?)`, name, limit)
+	return err
+}
+
+func (l *Ledger) GetOrganizations() ([]OrganizationRecord, error) {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	rows, err := l.db.Query(`SELECT id, name, budget_limit_usd, consumed_usd, created_at FROM tkngate_organizations`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var orgs []OrganizationRecord
+	for rows.Next() {
+		var o OrganizationRecord
+		if err := rows.Scan(&o.ID, &o.Name, &o.BudgetLimitUSD, &o.ConsumedUSD, &o.CreatedAt); err == nil {
+			orgs = append(orgs, o)
+		}
+	}
+	return orgs, nil
+}
+
+func (l *Ledger) RegisterVirtualKey(keyHash, name string, allocatedBudget float64, orgID int, allowedProviders string) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	_, err := l.db.Exec(`INSERT INTO tkngate_virtual_keys (key_hash, name, allocated_budget_usd, org_id, allowed_providers) VALUES (?, ?, ?, ?, ?)`, keyHash, name, allocatedBudget, orgID, allowedProviders)
 	return err
 }
 
 func (l *Ledger) GetVirtualKeys() ([]VirtualKeyRecord, error) {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
-	rows, err := l.db.Query(`SELECT id, key_hash, name, allocated_budget_usd, consumed_budget_usd, created_at FROM tkngate_virtual_keys`)
+	rows, err := l.db.Query(`SELECT id, key_hash, name, allocated_budget_usd, consumed_budget_usd, org_id, allowed_providers, created_at FROM tkngate_virtual_keys`)
 	if err != nil {
 		return nil, err
 	}
@@ -243,7 +295,7 @@ func (l *Ledger) GetVirtualKeys() ([]VirtualKeyRecord, error) {
 	var keys []VirtualKeyRecord
 	for rows.Next() {
 		var k VirtualKeyRecord
-		if err := rows.Scan(&k.ID, &k.KeyHash, &k.Name, &k.AllocatedBudget, &k.ConsumedBudget, &k.CreatedAt); err == nil {
+		if err := rows.Scan(&k.ID, &k.KeyHash, &k.Name, &k.AllocatedBudget, &k.ConsumedBudget, &k.OrgID, &k.AllowedProviders, &k.CreatedAt); err == nil {
 			keys = append(keys, k)
 		}
 	}

@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/joho/godotenv"
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 )
 
 var rootCmd = &cobra.Command{
 	Use:     "tkngate",
-	Version: "v2.0.0-stake-and-slash",
+	Version: "v2.0.0",
 	Short:   "tkngate is an enterprise token-management reverse proxy",
 	Long: `tkngate is a zero-knowledge reverse proxy daemon for LLM APIs.
 It provides P2P token pooling, real-time budget enforcement, and semantic caching.`,
@@ -33,6 +34,9 @@ var (
 )
 
 func init() {
+	// Attempt to load .env file if it exists, so TKNGATE_MASTER_KEY is available
+	_ = godotenv.Load()
+
 	// ── Marketing Page Colors ──────────────────────────────────────────────────
 	// bg-[#162b1d] = dark forest green  (text/borders on marketing page)
 	// #b89752      = warm amber gold    (accent color on marketing page)
@@ -55,10 +59,10 @@ func init() {
 	pterm.ThemeDefault.HighlightStyle = *pterm.NewStyle(pterm.Bold, pterm.FgYellow)
 	pterm.ThemeDefault.InfoMessageStyle = *pterm.NewStyle(pterm.FgYellow)
 	pterm.ThemeDefault.InfoPrefixStyle = *pterm.NewStyle(pterm.FgBlack, pterm.BgYellow)
-	pterm.ThemeDefault.SuccessMessageStyle = *pterm.NewStyle(pterm.FgYellow)
-	pterm.ThemeDefault.SuccessPrefixStyle = *pterm.NewStyle(pterm.FgBlack, pterm.BgYellow)
-	pterm.ThemeDefault.WarningMessageStyle = *pterm.NewStyle(pterm.FgYellow)
-	pterm.ThemeDefault.WarningPrefixStyle = *pterm.NewStyle(pterm.FgBlack, pterm.BgYellow)
+	pterm.ThemeDefault.SuccessMessageStyle = *pterm.NewStyle(pterm.FgGreen)
+	pterm.ThemeDefault.SuccessPrefixStyle = *pterm.NewStyle(pterm.FgBlack, pterm.BgGreen)
+	pterm.ThemeDefault.WarningMessageStyle = *pterm.NewStyle(pterm.FgLightRed)
+	pterm.ThemeDefault.WarningPrefixStyle = *pterm.NewStyle(pterm.FgBlack, pterm.BgLightRed)
 	pterm.ThemeDefault.ErrorMessageStyle = *pterm.NewStyle(pterm.FgLightRed)
 	pterm.ThemeDefault.ErrorPrefixStyle = *pterm.NewStyle(pterm.FgBlack, pterm.BgLightRed)
 	pterm.ThemeDefault.SpinnerStyle = *pterm.NewStyle(pterm.FgYellow)
@@ -112,9 +116,13 @@ func init() {
 		// ── Main Menu ──
 		menuOptions := []string{
 			"serve  (Start Proxy Server)",
+			"org    (Manage Organizations)",
 			"auth   (Manage Virtual Keys)",
 			"budget (Check Budget Status)",
 			"cache  (Semantic Cache Status)",
+			"waf    (AI Firewall)",
+			"providers (Upstream Health)",
+			"monitor(Live Traffic TUI)",
 			"config (Configure Tkngate)",
 			"pool   (P2P Mesh Pool Status)",
 			"exit   (Close)",
@@ -159,16 +167,51 @@ func init() {
 						limitStr, _ := pterm.DefaultInteractiveTextInput.Show("Enter USD budget limit (e.g. 10.50)")
 						var limit float64 = 10.0
 						if limitStr != "" {
-							fmt.Sscanf(limitStr, "%f", &limit)
+							_, err := fmt.Sscanf(limitStr, "%f", &limit)
+							if err != nil {
+								pterm.Error.Println("Invalid budget limit entered. Using default of $10.00")
+								limit = 10.0
+							}
 						}
+						
+						orgStr, _ := pterm.DefaultInteractiveTextInput.Show("Enter Org ID (leave blank for Global)")
+						var orgID int = 0
+						if orgStr != "" {
+							fmt.Sscanf(orgStr, "%d", &orgID)
+						}
+
+						providers, _ := pterm.DefaultInteractiveTextInput.Show("Allowed Providers (leave blank for All)")
+
 						virtualKeyName = name
 						virtualKeyLimit = limit
+						virtualKeyOrgID = orgID
+						virtualKeyProviders = providers
 						generateCmd.Run(generateCmd, []string{})
 					}
 				case "Revoke Key":
 					if revokeName, _ := pterm.DefaultInteractiveTextInput.Show("Enter Key Name to revoke"); revokeName != "" {
 						virtualKeyName = revokeName
 						revokeCmd.Run(revokeCmd, []string{})
+					}
+				}
+			case "org    (Manage Organizations)":
+				orgOpts := []string{"List Organizations", "Create Organization", "Back"}
+				orgAction := createMenu("Organizations", orgOpts)
+
+				switch orgAction {
+				case "List Organizations":
+					orgListCmd.Run(orgListCmd, []string{})
+				case "Create Organization":
+					name, _ := pterm.DefaultInteractiveTextInput.Show("Enter Organization Name")
+					if name != "" {
+						limitStr, _ := pterm.DefaultInteractiveTextInput.Show("Enter USD Budget Limit")
+						var limit float64 = 100.0
+						if limitStr != "" {
+							fmt.Sscanf(limitStr, "%f", &limit)
+						}
+						orgName = name
+						orgLimit = limit
+						orgCreateCmd.Run(orgCreateCmd, []string{})
 					}
 				}
 			case "budget (Check Budget Status)":
@@ -182,7 +225,25 @@ func init() {
 					resetCmd.Run(resetCmd, []string{})
 				}
 			case "cache  (Semantic Cache Status)":
-				cacheStatusCmd.Run(cacheStatusCmd, []string{})
+				cacheOpts := []string{"View Status", "Clear Cache", "Back"}
+				cacheAction := createMenu("Semantic Cache", cacheOpts)
+
+				switch cacheAction {
+				case "View Status":
+					cacheStatusCmd.Run(cacheStatusCmd, []string{})
+				case "Clear Cache":
+					cacheClearCmd.Run(cacheClearCmd, []string{})
+				}
+			case "waf    (AI Firewall)":
+				wafOpts := []string{"View WAF Status", "List WAF Rules", "Back"}
+				wafAction := createMenu("AI Firewall", wafOpts)
+
+				switch wafAction {
+				case "View WAF Status":
+					wafStatusCmd.Run(wafStatusCmd, []string{})
+				case "List WAF Rules":
+					wafRulesCmd.Run(wafRulesCmd, []string{})
+				}
 			case "config (Configure Tkngate)":
 				configOpts := []string{"Show Config", "Validate Config", "Generate Master Key", "Back"}
 				configAction := createMenu("Configuration", configOpts)
@@ -206,9 +267,32 @@ func init() {
 					provOpts := []string{"openai", "anthropic", "deepseek", "mistral", "groq", "ollama"}
 					provider := createMenu("Select Provider", provOpts)
 					
+					limitStr, _ := pterm.DefaultInteractiveTextInput.Show("Enter TPM Quota limit (e.g. 100000)")
+					var limit int = 100000
+					if limitStr != "" {
+						_, err := fmt.Sscanf(limitStr, "%d", &limit)
+						if err != nil {
+							pterm.Error.Println("Invalid limit entered. Using default of 100,000")
+							limit = 100000
+						}
+					}
+					
 					poolProvider = provider
+					poolLimit = limit
 					donateCmd.RunE(donateCmd, []string{})
 				}
+			case "providers (Upstream Health)":
+				providerOpts := []string{"List Providers", "Test All Providers", "Back"}
+				provAction := createMenu("Upstream Providers", providerOpts)
+
+				switch provAction {
+				case "List Providers":
+					providersListCmd.Run(providersListCmd, []string{})
+				case "Test All Providers":
+					providersTestCmd.Run(providersTestCmd, []string{})
+				}
+			case "monitor(Live Traffic TUI)":
+				monitorCmd.Run(monitorCmd, []string{})
 			case "exit   (Close)":
 				os.Exit(0)
 			default:
