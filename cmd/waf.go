@@ -1,10 +1,17 @@
 package cmd
 
 import (
+	"bytes"
+	"encoding/base64"
 	"fmt"
+	"math/big"
+	"strings"
 	"tkngate/internal/config"
 	"tkngate/internal/waf"
+	"tkngate/internal/zkp"
 
+	"github.com/consensys/gnark-crypto/ecc"
+	"github.com/consensys/gnark/backend/groth16"
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 )
@@ -155,8 +162,93 @@ var wafRulesCmd = &cobra.Command{
 	},
 }
 
+var wafProveCmd = &cobra.Command{
+	Use:   "prove [prompt]",
+	Short: "Generate a ZK-SNARK AI-WAF proof for a given prompt",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		prompt := args[0]
+		spinner, _ := pterm.DefaultSpinner.Start("Compiling ZKP Circuit...")
+		if err := zkp.Setup(); err != nil {
+			spinner.Fail("Failed to initialize ZKP engine: ", err.Error())
+			return
+		}
+		spinner.Success("Circuit Compiled")
+
+		spinner, _ = pterm.DefaultSpinner.Start("Generating Proof...")
+		proof, nonce, err := zkp.GlobalZKP.GenerateProof(prompt)
+		if err != nil {
+			spinner.Fail("Failed to generate proof: ", err.Error())
+			return
+		}
+		spinner.Success("Proof Generated")
+
+		var buf bytes.Buffer
+		if _, err := proof.WriteRawTo(&buf); err != nil {
+			pterm.Error.Println("Failed to serialize proof:", err)
+			return
+		}
+		proofBytes := buf.Bytes()
+		nonceBytes := nonce.Bytes()
+
+		fmt.Println()
+		pterm.Info.Println("Include this header in your API requests:")
+		fmt.Printf("X-Tkngate-ZKP: %s:%s\n", base64.StdEncoding.EncodeToString(proofBytes), base64.StdEncoding.EncodeToString(nonceBytes))
+		fmt.Println()
+	},
+}
+
+var wafVerifyCmd = &cobra.Command{
+	Use:   "verify [header_value]",
+	Short: "Verify a ZK-SNARK AI-WAF proof header (X-Tkngate-ZKP format)",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		header := args[0]
+		parts := strings.Split(header, ":")
+		if len(parts) != 2 {
+			pterm.Error.Println("Invalid header format. Expected <base64-proof>:<base64-nonce>")
+			return
+		}
+
+		proofBytes, err := base64.StdEncoding.DecodeString(parts[0])
+		if err != nil {
+			pterm.Error.Println("Invalid base64 proof:", err)
+			return
+		}
+
+		nonceBytes, err := base64.StdEncoding.DecodeString(parts[1])
+		if err != nil {
+			pterm.Error.Println("Invalid base64 nonce:", err)
+			return
+		}
+		nonce := new(big.Int).SetBytes(nonceBytes)
+
+		proof := groth16.NewProof(ecc.BN254)
+		if _, err := proof.ReadFrom(bytes.NewReader(proofBytes)); err != nil {
+			pterm.Error.Println("Failed to deserialize proof:", err)
+			return
+		}
+
+		spinner, _ := pterm.DefaultSpinner.Start("Compiling ZKP Circuit...")
+		if err := zkp.Setup(); err != nil {
+			spinner.Fail("Failed to initialize ZKP engine: ", err.Error())
+			return
+		}
+		spinner.Success("Circuit Compiled")
+
+		spinner, _ = pterm.DefaultSpinner.Start("Verifying Proof mathematically...")
+		if err := zkp.GlobalZKP.VerifyProof(proof, nonce); err != nil {
+			spinner.Fail("Proof Verification FAILED: ", err.Error())
+			return
+		}
+		spinner.Success("Proof Verification PASSED")
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(wafCmd)
 	wafCmd.AddCommand(wafStatusCmd)
 	wafCmd.AddCommand(wafRulesCmd)
+	wafCmd.AddCommand(wafProveCmd)
+	wafCmd.AddCommand(wafVerifyCmd)
 }
