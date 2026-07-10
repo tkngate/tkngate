@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.0.1] - Multi-Tenant Organizations & RBAC
+### Added
+- **Organizations**: Created the `tkngate_organizations` SQLite ledger table. You can now create specific budgets for individual teams or projects using `tkngate org create`.
+- **Role-Based Access Control (RBAC)**: Virtual Keys can now be restricted to specific upstream providers (e.g. `openai` only) via the new `--providers` flag.
+- **CLI Commands**: Added `tkngate org create` and `tkngate org list` commands, and updated `tkngate auth generate` to support the new `--org` and `--providers` flags.
+
+### Fixed
+- **API Server Registration**: Fixed a bug where `internal/api/server.go` failed to compile due to missing arguments in `budget.GlobalLedger.RegisterVirtualKey`.
+- **Model Syncer**: Updated token counting models and defaults from `gpt-6o` to `gpt-5.6` to reflect the latest release.
+
 ## [v2.0.0] - Stake-and-Slash Reputation Engine
 ### Added
 - **Game-Theory Economics**: Fully wired the Stake-and-Slash Reputation Engine into the live proxy pipeline.

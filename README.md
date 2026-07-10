@@ -22,6 +22,7 @@ Tkngate solves this by sitting between your agents and your provider (OpenAI, An
 * "Stop paying for 429s."
 * "Put hard USD circuit breakers on your autonomous agents."
 * "Cache redundant agent reasoning loops for $0.00."
+* "Create Multi-Tenant Organizations and restrict keys using RBAC."
 
 ---
 

@@ -12,8 +12,10 @@ import (
 )
 
 var (
-	virtualKeyName  string
-	virtualKeyLimit float64
+	virtualKeyName     string
+	virtualKeyLimit    float64
+	virtualKeyOrgID    int
+	virtualKeyProviders string
 )
 
 var authCmd = &cobra.Command{
@@ -42,7 +44,7 @@ var generateCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		if err := budget.GlobalLedger.RegisterVirtualKey(key.Hash, virtualKeyName, virtualKeyLimit); err != nil {
+		if err := budget.GlobalLedger.RegisterVirtualKey(key.Hash, virtualKeyName, virtualKeyLimit, virtualKeyOrgID, virtualKeyProviders); err != nil {
 			spinner.Fail("Error saving key to ledger: ", err.Error())
 			os.Exit(1)
 		}
@@ -52,9 +54,15 @@ var generateCmd = &cobra.Command{
 
 		fmt.Println(Forest("--------------------------------------------------------------------------------"))
 		fmt.Println(Gold("■ NEW VIRTUAL KEY"))
-		fmt.Printf("  Name:   %s\n", Gold(virtualKeyName))
-		fmt.Printf("  Limit:  $%.2f\n", virtualKeyLimit)
-		fmt.Printf("  Key:    %s\n", Gold(key.Plaintext))
+		fmt.Printf("  Name:      %s\n", Gold(virtualKeyName))
+		fmt.Printf("  Limit:     $%.2f\n", virtualKeyLimit)
+		if virtualKeyOrgID > 0 {
+			fmt.Printf("  Org ID:    %d\n", virtualKeyOrgID)
+		}
+		if virtualKeyProviders != "" {
+			fmt.Printf("  Providers: %s\n", virtualKeyProviders)
+		}
+		fmt.Printf("  Key:       %s\n", Gold(key.Plaintext))
 		fmt.Println(Forest("--------------------------------------------------------------------------------"))
 		
 		pterm.Warning.Println("Store this key safely. You will not be able to see it again!")
@@ -86,12 +94,12 @@ var listCmd = &cobra.Command{
 		fmt.Println()
 
 		if len(keys) == 0 {
-			pterm.Info.Println("No active keys found. Use 'tkngate auth issue' to create one.")
+			pterm.Info.Println("No active keys found. Use 'tkngate auth generate' to create one.")
 			return
 		}
 
 		tableData := pterm.TableData{
-			{"NAME", "CONSUMED", "ALLOCATED", "CREATED"},
+			{"NAME", "CONSUMED", "ALLOCATED", "ORG ID", "RESTRICTED", "CREATED"},
 		}
 
 		for _, k := range keys {
@@ -106,11 +114,23 @@ var listCmd = &cobra.Command{
 			} else {
 				consumedStr = Forest(consumedStr)
 			}
+			
+			orgStr := "Global"
+			if k.OrgID > 0 {
+				orgStr = fmt.Sprintf("%d", k.OrgID)
+			}
+			
+			restStr := "None"
+			if k.AllowedProviders != "" {
+				restStr = k.AllowedProviders
+			}
 
 			tableData = append(tableData, []string{
 				Gold(k.Name),
 				consumedStr,
 				allocatedStr,
+				orgStr,
+				restStr,
 				Parch(k.CreatedAt),
 			})
 		}
@@ -157,6 +177,8 @@ func init() {
 
 	generateCmd.Flags().StringVar(&virtualKeyName, "name", "", "Name of the key (e.g. 'agent-1')")
 	generateCmd.Flags().Float64Var(&virtualKeyLimit, "limit", 10.0, "Budget limit in USD for this key")
+	generateCmd.Flags().IntVar(&virtualKeyOrgID, "org", 0, "Organization ID to assign this key to")
+	generateCmd.Flags().StringVar(&virtualKeyProviders, "providers", "", "Comma-separated list of allowed providers (e.g. 'openai,anthropic')")
 
 	revokeCmd.Flags().StringVar(&virtualKeyName, "name", "", "Name of the key to revoke")
 }

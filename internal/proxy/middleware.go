@@ -98,6 +98,44 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 					if auth.VerifyKey(virtualKey, k.KeyHash) {
 						authenticatedKeyHash = k.KeyHash
 						sessionID = k.Name // Map the virtual key name to the session ID for legacy tracking
+						
+						// RBAC Check (v2.0.0)
+						if k.AllowedProviders != "" {
+							allowedList := strings.Split(k.AllowedProviders, ",")
+							isAllowed := false
+							for _, allowed := range allowedList {
+								if strings.TrimSpace(allowed) == provider {
+									isAllowed = true
+									break
+								}
+							}
+							if !isAllowed {
+								logging.Logger.Error("Request blocked by RBAC: Provider not allowed for this key", "key", k.Name, "requested", provider)
+								return blockRequest(fmt.Sprintf("403 Forbidden: RBAC Policy Violation. Key '%s' cannot access provider '%s'", k.Name, provider))
+							}
+						}
+
+						// Org Budget Check (v2.0.0)
+						if k.OrgID > 0 {
+							orgs, orgErr := budget.GlobalLedger.GetOrganizations()
+							if orgErr == nil {
+								for _, o := range orgs {
+									if o.ID == k.OrgID {
+										if o.ConsumedUSD >= o.BudgetLimitUSD {
+											logging.Logger.Error("Request blocked: Organization budget exhausted", "org", o.Name)
+											return blockRequest(fmt.Sprintf("403 Forbidden: Organization Budget Exhausted (%s)", o.Name))
+										}
+										break
+									}
+								}
+							}
+						}
+
+						if k.ConsumedBudget >= k.AllocatedBudget {
+							sessionZone = budget.ZoneRed
+						} else if k.ConsumedBudget >= k.AllocatedBudget*0.75 {
+							sessionZone = budget.ZoneAmber
+						}
 						break
 					}
 				}

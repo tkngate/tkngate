@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"os"
 	"strings"
@@ -38,6 +39,31 @@ func StartTelemetryServer(host string, port int) error {
 	mux.HandleFunc("/api/v1/mesh/reputation", withCORS(withAuth(handleMeshReputation)))
 	mux.HandleFunc("/api/v1/vkeys", withCORS(withAuth(handleVirtualKeys)))
 	mux.Handle("/metrics", promhttp.Handler())
+
+	// Serve the embedded React Dashboard
+	subFS, err := fs.Sub(DashboardFS, "ui/dist")
+	if err != nil {
+		logging.Logger.Error("Failed to load embedded dashboard UI", "error", err)
+	} else {
+		fileServer := http.FileServer(http.FS(subFS))
+		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			// If it's an API request that fell through, return 404
+			if strings.HasPrefix(r.URL.Path, "/api/") {
+				http.NotFound(w, r)
+				return
+			}
+			
+			// Try to open the requested file
+			f, err := subFS.Open(strings.TrimPrefix(r.URL.Path, "/"))
+			if err != nil {
+				// File not found, fall back to index.html for React Router SPA
+				r.URL.Path = "/"
+			} else {
+				f.Close()
+			}
+			fileServer.ServeHTTP(w, r)
+		})
+	}
 
 	addr := fmt.Sprintf("%s:%d", host, port)
 	logging.Logger.Info("Telemetry API starting", "address", addr)
@@ -279,7 +305,7 @@ func handleVirtualKeys(w http.ResponseWriter, r *http.Request) {
 		}
 		plainKey := fmt.Sprintf("tkngate-sk-%x", buf)
 		keyHash := fmt.Sprintf("%x", sha256Sum([]byte(plainKey)))
-		if err := budget.GlobalLedger.RegisterVirtualKey(keyHash, req.Name, req.Budget); err != nil {
+		if err := budget.GlobalLedger.RegisterVirtualKey(keyHash, req.Name, req.Budget, 0, ""); err != nil {
 			http.Error(w, `{"error":"key already exists or db error"}`, http.StatusConflict)
 			return
 		}
