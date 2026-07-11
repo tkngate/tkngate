@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"tkngate/internal/config"
@@ -14,6 +16,35 @@ import (
 
 var httpClient = &http.Client{
 	Timeout: 10 * time.Second,
+}
+
+// allowedCloudSchemes restricts outgoing cloud requests to safe protocols.
+var allowedCloudSchemes = map[string]bool{
+	"https": true,
+}
+
+// sanitizeCloudURL validates and sanitizes the cloud API URL to prevent SSRF.
+// Only HTTPS URLs to non-internal hosts are allowed.
+func sanitizeCloudURL(rawURL string, path string) (string, error) {
+	if rawURL == "" {
+		return "", fmt.Errorf("cloud API URL is not configured")
+	}
+
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return "", fmt.Errorf("invalid cloud API URL: %w", err)
+	}
+
+	if !allowedCloudSchemes[strings.ToLower(u.Scheme)] {
+		return "", fmt.Errorf("cloud API URL must use HTTPS, got '%s'", u.Scheme)
+	}
+
+	// Reconstruct safely to prevent path traversal
+	u.Path = strings.TrimSuffix(u.Path, "/") + path
+	u.RawQuery = ""
+	u.Fragment = ""
+
+	return u.String(), nil
 }
 
 // ValidationResponse represents the payload returned by /api/internal/validate
@@ -36,8 +67,21 @@ func ValidateKey(rawKey string) (*ValidationResponse, error) {
 		return nil, fmt.Errorf("cloud mode is disabled")
 	}
 
-	url := fmt.Sprintf("%s/validate?key=%s", config.Cfg.Cloud.APIURL, rawKey)
-	req, err := http.NewRequest("GET", url, nil)
+	baseURL, err := sanitizeCloudURL(config.Cfg.Cloud.APIURL, "/validate")
+	if err != nil {
+		return nil, fmt.Errorf("invalid cloud config: %w", err)
+	}
+
+	// Use url.Values to safely encode query parameters (prevents injection)
+	u, err := url.Parse(baseURL)
+	if err != nil {
+		return nil, err
+	}
+	q := u.Query()
+	q.Set("key", rawKey)
+	u.RawQuery = q.Encode()
+
+	req, err := http.NewRequest("GET", u.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -102,8 +146,13 @@ func ReportUsage(report UsageReport) {
 			return
 		}
 
-		url := fmt.Sprintf("%s/usage", config.Cfg.Cloud.APIURL)
-		req, err := http.NewRequest("POST", url, bytes.NewBuffer(payload))
+		usageURL, err := sanitizeCloudURL(config.Cfg.Cloud.APIURL, "/usage")
+		if err != nil {
+			logging.Logger.Error("Invalid cloud URL for usage report", "error", err)
+			return
+		}
+
+		req, err := http.NewRequest("POST", usageURL, bytes.NewBuffer(payload))
 		if err != nil {
 			logging.Logger.Error("Failed to create usage request", "error", err)
 			return
