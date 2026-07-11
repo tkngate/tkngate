@@ -584,6 +584,18 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, fmt.Sprintf(`{"error":"failed to decode config: %v"}`, err), http.StatusBadRequest)
 			return
 		}
+
+		// Validate any newly provided API keys before saving
+		for providerName, providerConfig := range updated.Providers {
+			key := providerConfig.APIKey
+			if key != "" && key != "[REDACTED]" {
+				if err := validator.ValidateKey(providerName, key); err != nil {
+					http.Error(w, fmt.Sprintf(`{"error":"Invalid API Key for %s: %v"}`, providerName, err), http.StatusBadRequest)
+					return
+				}
+			}
+		}
+
 		if err := config.SaveConfig(updated); err != nil {
 			http.Error(w, fmt.Sprintf(`{"error":"failed to save config: %v"}`, err), http.StatusInternalServerError)
 			return

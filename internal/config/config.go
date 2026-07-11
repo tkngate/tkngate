@@ -10,93 +10,93 @@ import (
 )
 
 type Config struct {
-	Server     ServerConfig              `mapstructure:"server"`
-	Providers  map[string]ProviderConfig `mapstructure:"providers"`
-	Budget     BudgetConfig              `mapstructure:"budget"`
-	Compressor CompressorConfig          `mapstructure:"compressor"`
-	Cache      CacheConfig               `mapstructure:"cache"`
-	Telemetry  TelemetryConfig           `mapstructure:"telemetry"`
-	Shadow     ShadowConfig              `mapstructure:"shadow"`
-	RateLimit  RateLimitConfig           `mapstructure:"rate_limit"`
-	Mesh       MeshConfig                `mapstructure:"mesh"`
-	Cloud      CloudConfig               `mapstructure:"cloud"`
-	WAF        WAFConfig                 `mapstructure:"waf"`
+	Server     ServerConfig              `mapstructure:"server" json:"server"`
+	Providers  map[string]ProviderConfig `mapstructure:"providers" json:"providers"`
+	Budget     BudgetConfig              `mapstructure:"budget" json:"budget"`
+	Compressor CompressorConfig          `mapstructure:"compressor" json:"compressor"`
+	Cache      CacheConfig               `mapstructure:"cache" json:"cache"`
+	Telemetry  TelemetryConfig           `mapstructure:"telemetry" json:"telemetry"`
+	Shadow     ShadowConfig              `mapstructure:"shadow" json:"shadow"`
+	RateLimit  RateLimitConfig           `mapstructure:"rate_limit" json:"rate_limit"`
+	Mesh       MeshConfig                `mapstructure:"mesh" json:"mesh"`
+	Cloud      CloudConfig               `mapstructure:"cloud" json:"cloud"`
+	WAF        WAFConfig                 `mapstructure:"waf" json:"waf"`
 }
 
 type WAFConfig struct {
-	Enabled   bool     `mapstructure:"enabled"`
-	Blocklist []string `mapstructure:"blocklist"`
+	Enabled   bool     `mapstructure:"enabled" json:"enabled"`
+	Blocklist []string `mapstructure:"blocklist" json:"blocklist"`
 }
 
 type ServerConfig struct {
-	Port int    `mapstructure:"port"`
-	Host string `mapstructure:"host"`
+	Port int    `mapstructure:"port" json:"port"`
+	Host string `mapstructure:"host" json:"host"`
 }
 
 type ProviderConfig struct {
-	APIKey       string `mapstructure:"api_key"`
-	BaseURL      string `mapstructure:"base_url"`
-	DefaultModel string `mapstructure:"default_model"`
+	APIKey       string `mapstructure:"api_key" json:"api_key"`
+	BaseURL      string `mapstructure:"base_url" json:"base_url"`
+	DefaultModel string `mapstructure:"default_model" json:"default_model"`
 }
 
 type BudgetConfig struct {
-	GlobalLimitUSD    float64 `mapstructure:"global_limit_usd"`
-	MaxSessionCostUSD float64 `mapstructure:"max_session_cost_usd"`
-	FallbackModel     string  `mapstructure:"fallback_model"`
-	FallbackProvider  string  `mapstructure:"fallback_provider"`
-	AmberThresholdPct int     `mapstructure:"amber_threshold_pct"`
-	RedThresholdPct   int     `mapstructure:"red_threshold_pct"`
-	ResetInterval     string  `mapstructure:"reset_interval"`
+	GlobalLimitUSD    float64 `mapstructure:"global_limit_usd" json:"global_limit_usd"`
+	MaxSessionCostUSD float64 `mapstructure:"max_session_cost_usd" json:"max_session_cost_usd"`
+	FallbackModel     string  `mapstructure:"fallback_model" json:"fallback_model"`
+	FallbackProvider  string  `mapstructure:"fallback_provider" json:"fallback_provider"`
+	AmberThresholdPct int     `mapstructure:"amber_threshold_pct" json:"amber_threshold_pct"`
+	RedThresholdPct   int     `mapstructure:"red_threshold_pct" json:"red_threshold_pct"`
+	ResetInterval     string  `mapstructure:"reset_interval" json:"reset_interval"`
 }
 
 type CompressorConfig struct {
-	Enabled        bool   `mapstructure:"enabled"`
-	SoftTokenLimit int    `mapstructure:"soft_token_limit"`
-	Strategy       string `mapstructure:"strategy"`
+	Enabled        bool   `mapstructure:"enabled" json:"enabled"`
+	SoftTokenLimit int    `mapstructure:"soft_token_limit" json:"soft_token_limit"`
+	Strategy       string `mapstructure:"strategy" json:"strategy"`
 }
 
 type CacheConfig struct {
-	Enabled    bool   `mapstructure:"enabled"`
-	MaxEntries int    `mapstructure:"max_entries"`
-	TTLSeconds int    `mapstructure:"ttl_seconds"`
-	RedisURI   string `mapstructure:"redis_uri"`
+	Enabled    bool   `mapstructure:"enabled" json:"enabled"`
+	MaxEntries int    `mapstructure:"max_entries" json:"max_entries"`
+	TTLSeconds int    `mapstructure:"ttl_seconds" json:"ttl_seconds"`
+	RedisURI   string `mapstructure:"redis_uri" json:"redis_uri"`
 }
 
 type TelemetryConfig struct {
-	Enabled bool   `mapstructure:"enabled"`
-	Port    int    `mapstructure:"port"`
-	Host    string `mapstructure:"host"`
+	Enabled bool   `mapstructure:"enabled" json:"enabled"`
+	Port    int    `mapstructure:"port" json:"port"`
+	Host    string `mapstructure:"host" json:"host"`
 }
 
 type ShadowConfig struct {
-	Enabled         bool    `mapstructure:"enabled"`
-	TargetProvider  string  `mapstructure:"target_provider"`
-	TargetModel     string  `mapstructure:"target_model"`
-	TrafficFraction float64 `mapstructure:"traffic_fraction"`
+	Enabled         bool    `mapstructure:"enabled" json:"enabled"`
+	TargetProvider  string  `mapstructure:"target_provider" json:"target_provider"`
+	TargetModel     string  `mapstructure:"target_model" json:"target_model"`
+	TrafficFraction float64 `mapstructure:"traffic_fraction" json:"traffic_fraction"`
 }
 
 type RateLimitConfig struct {
-	Enabled           bool `mapstructure:"enabled"`
-	RequestsPerMinute int  `mapstructure:"requests_per_minute"`
-	BurstSize         int  `mapstructure:"burst_size"`
+	Enabled           bool `mapstructure:"enabled" json:"enabled"`
+	RequestsPerMinute int  `mapstructure:"requests_per_minute" json:"requests_per_minute"`
+	BurstSize         int  `mapstructure:"burst_size" json:"burst_size"`
 }
 
 type MeshConfig struct {
-	ReputationEnabled   bool    `mapstructure:"reputation_enabled"`
-	PreflightModeration bool    `mapstructure:"preflight_moderation"`
-	ModerationAPIKey    string  `mapstructure:"moderation_api_key"`
-	InitialTrustScore   float64 `mapstructure:"initial_trust_score"`
-	SlashPenalty        float64 `mapstructure:"slash_penalty"`
-	BlacklistThreshold  float64 `mapstructure:"blacklist_threshold"`
-	PremiumTrustMinimum float64 `mapstructure:"premium_trust_minimum"`
-	FreeRiderLimit      int     `mapstructure:"free_rider_limit"`
-	StrictZKPMode       bool    `mapstructure:"strict_zkp_mode"`
+	ReputationEnabled   bool    `mapstructure:"reputation_enabled" json:"reputation_enabled"`
+	PreflightModeration bool    `mapstructure:"preflight_moderation" json:"preflight_moderation"`
+	ModerationAPIKey    string  `mapstructure:"moderation_api_key" json:"moderation_api_key"`
+	InitialTrustScore   float64 `mapstructure:"initial_trust_score" json:"initial_trust_score"`
+	SlashPenalty        float64 `mapstructure:"slash_penalty" json:"slash_penalty"`
+	BlacklistThreshold  float64 `mapstructure:"blacklist_threshold" json:"blacklist_threshold"`
+	PremiumTrustMinimum float64 `mapstructure:"premium_trust_minimum" json:"premium_trust_minimum"`
+	FreeRiderLimit      int     `mapstructure:"free_rider_limit" json:"free_rider_limit"`
+	StrictZKPMode       bool    `mapstructure:"strict_zkp_mode" json:"strict_zkp_mode"`
 }
 
 type CloudConfig struct {
-	Enabled bool   `mapstructure:"enabled"`
-	APIURL  string `mapstructure:"api_url"`
-	Secret  string `mapstructure:"secret"`
+	Enabled bool   `mapstructure:"enabled" json:"enabled"`
+	APIURL  string `mapstructure:"api_url" json:"api_url"`
+	Secret  string `mapstructure:"secret" json:"secret"`
 }
 
 var Cfg Config

@@ -49,7 +49,22 @@ var monitorCmd = &cobra.Command{
 		}()
 
 		client := &http.Client{Timeout: 2 * time.Second}
-		endpoint := fmt.Sprintf("http://%s:%d/api/v1/overview", config.Cfg.Telemetry.Host, config.Cfg.Telemetry.Port)
+
+		// Validate that telemetry host is a safe localhost address (SSRF protection)
+		allowedHosts := map[string]bool{"localhost": true, "127.0.0.1": true, "::1": true, "": true}
+		if !allowedHosts[config.Cfg.Telemetry.Host] {
+			spinner.Fail("Telemetry host must be localhost/127.0.0.1 for security. Got: " + config.Cfg.Telemetry.Host)
+			return
+		}
+		host := config.Cfg.Telemetry.Host
+		if host == "" {
+			host = "127.0.0.1"
+		}
+		if config.Cfg.Telemetry.Port < 1 || config.Cfg.Telemetry.Port > 65535 {
+			spinner.Fail("Telemetry port must be between 1 and 65535.")
+			return
+		}
+		endpoint := fmt.Sprintf("http://%s:%d/api/v1/overview", host, config.Cfg.Telemetry.Port)
 
 		for {
 			req, err := http.NewRequest("GET", endpoint, nil)

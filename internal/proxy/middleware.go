@@ -7,6 +7,7 @@ import (
 	"io"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -566,7 +567,29 @@ func fireShadowRequest(body []byte, provider string, model string) {
 	shadowBody := replaceModel(body, model)
 
 	baseURL := strings.TrimSuffix(providerCfg.BaseURL, "/")
-	shadowURL := baseURL + "/chat/completions"
+
+	// SSRF protection: validate the BaseURL before making a request
+	u, err := url.Parse(baseURL)
+	if err != nil {
+		logging.Logger.Error("Shadow mode: invalid base URL", "url", baseURL, "error", err)
+		return
+	}
+	if u.Scheme != "https" && u.Scheme != "http" {
+		logging.Logger.Error("Shadow mode: base URL must use http(s)", "scheme", u.Scheme)
+		return
+	}
+	// Block requests to private/internal IPs
+	hostname := u.Hostname()
+	if hostname == "localhost" || hostname == "127.0.0.1" || hostname == "::1" ||
+		strings.HasPrefix(hostname, "10.") || strings.HasPrefix(hostname, "192.168.") || strings.HasPrefix(hostname, "169.254.") {
+		// Allow localhost only for ollama provider
+		if provider != "ollama" {
+			logging.Logger.Error("Shadow mode: refusing to send requests to internal network", "host", hostname)
+			return
+		}
+	}
+
+	shadowURL := u.String() + "/chat/completions"
 
 	shadowReq, err := http.NewRequest("POST", shadowURL, bytes.NewBuffer(shadowBody))
 	if err != nil {

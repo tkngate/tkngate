@@ -2,11 +2,19 @@ package validator
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
 )
+
+// allowedOllamaHosts restricts Ollama URLs to only local addresses to prevent SSRF.
+var allowedOllamaHosts = map[string]bool{
+	"localhost": true,
+	"127.0.0.1": true,
+	"::1":       true,
+}
 
 // ValidateKey performs a lightweight ping to the provider's API to ensure the key is real and active.
 func ValidateKey(provider, key string) error {
@@ -57,6 +65,29 @@ func ValidateKey(provider, key string) error {
 			if u.Scheme != "http" && u.Scheme != "https" {
 				return fmt.Errorf("ollama URL must use http or https")
 			}
+
+			// Extract hostname without port for validation
+			hostname := u.Hostname()
+
+			// Resolve the hostname to check for internal IPs (SSRF protection)
+			if !allowedOllamaHosts[hostname] {
+				// Also resolve DNS to block rebinding attacks targeting internal networks
+				ips, err := net.LookupIP(hostname)
+				if err != nil {
+					return fmt.Errorf("cannot resolve ollama hostname '%s': %v", hostname, err)
+				}
+				allLocal := true
+				for _, ip := range ips {
+					if !ip.IsLoopback() {
+						allLocal = false
+						break
+					}
+				}
+				if !allLocal {
+					return fmt.Errorf("ollama URL must point to localhost (127.0.0.1 or ::1), got '%s'", hostname)
+				}
+			}
+
 			// Reconstruct URL safely to prevent SSRF path injection
 			u.Path = "/api/tags"
 			u.RawQuery = ""
