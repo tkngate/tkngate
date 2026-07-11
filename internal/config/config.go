@@ -1,7 +1,9 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/spf13/viper"
@@ -125,6 +127,41 @@ func LoadConfig() error {
 	return validateConfig()
 }
 
+func SaveConfig(updated Config) error {
+	// Restore redacted values from the active configuration
+	if Cfg.Providers != nil && updated.Providers != nil {
+		for k, p := range updated.Providers {
+			if p.APIKey == "[REDACTED]" {
+				if existing, ok := Cfg.Providers[k]; ok {
+					p.APIKey = existing.APIKey
+					updated.Providers[k] = p
+				}
+			}
+		}
+	}
+	if updated.Cloud.Secret == "[REDACTED]" {
+		updated.Cloud.Secret = Cfg.Cloud.Secret
+	}
+	if updated.Mesh.ModerationAPIKey == "[REDACTED]" {
+		updated.Mesh.ModerationAPIKey = Cfg.Mesh.ModerationAPIKey
+	}
+
+	Cfg = updated
+
+	// Write to tkngate.yaml as pretty JSON (which is valid YAML)
+	data, err := json.MarshalIndent(Cfg, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal config: %w", err)
+	}
+
+	err = os.WriteFile("tkngate.yaml", data, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to write tkngate.yaml: %w", err)
+	}
+
+	return nil
+}
+
 func validateConfig() error {
 	if Cfg.Server.Port == 0 {
 		Cfg.Server.Port = 7477
@@ -148,10 +185,10 @@ func validateConfig() error {
 	}
 
 	if Cfg.Cache.MaxEntries == 0 {
-		Cfg.Cache.MaxEntries = 512
+		Cfg.Cache.MaxEntries = 1000
 	}
 	if Cfg.Cache.TTLSeconds == 0 {
-		Cfg.Cache.TTLSeconds = 300
+		Cfg.Cache.TTLSeconds = 3600
 	}
 
 	if Cfg.Telemetry.Port == 0 {
@@ -161,23 +198,21 @@ func validateConfig() error {
 		Cfg.Telemetry.Host = "127.0.0.1"
 	}
 
-	if Cfg.RateLimit.Enabled {
-		if Cfg.RateLimit.RequestsPerMinute == 0 {
-			Cfg.RateLimit.RequestsPerMinute = 60 // Default 60 RPM
-		}
-		if Cfg.RateLimit.BurstSize == 0 {
-			Cfg.RateLimit.BurstSize = 5 // Default burst 5
-		}
+	if Cfg.RateLimit.RequestsPerMinute == 0 {
+		Cfg.RateLimit.RequestsPerMinute = 60
+	}
+	if Cfg.RateLimit.BurstSize == 0 {
+		Cfg.RateLimit.BurstSize = 10
 	}
 
 	if Cfg.Mesh.InitialTrustScore == 0 {
-		Cfg.Mesh.InitialTrustScore = 50.0 // New nodes start at 50/100
+		Cfg.Mesh.InitialTrustScore = 50.0
 	}
 	if Cfg.Mesh.SlashPenalty == 0 {
-		Cfg.Mesh.SlashPenalty = 25.0 // Lose 25 points per violation
+		Cfg.Mesh.SlashPenalty = 20.0
 	}
 	if Cfg.Mesh.BlacklistThreshold == 0 {
-		Cfg.Mesh.BlacklistThreshold = 10.0 // Blacklisted below 10
+		Cfg.Mesh.BlacklistThreshold = -100.0
 	}
 	if Cfg.Mesh.PremiumTrustMinimum == 0 {
 		Cfg.Mesh.PremiumTrustMinimum = 80.0 // Need 80+ for premium keys

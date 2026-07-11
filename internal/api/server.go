@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -128,7 +129,7 @@ func withCORS(next http.HandlerFunc) http.HandlerFunc {
 		if strings.HasPrefix(origin, "http://localhost") || strings.HasPrefix(origin, "http://127.0.0.1") {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 		}
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
 		if r.Method == "OPTIONS" {
@@ -340,6 +341,27 @@ func handleOrgs(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"status": "created",
 			"name":   req.Name,
+		})
+
+	case "DELETE":
+		idStr := r.URL.Query().Get("id")
+		if idStr == "" {
+			http.Error(w, `{"error":"id is required"}`, http.StatusBadRequest)
+			return
+		}
+		id, err := strconv.Atoi(idStr)
+		if err != nil {
+			http.Error(w, `{"error":"invalid id format"}`, http.StatusBadRequest)
+			return
+		}
+		if err := budget.GlobalLedger.DeleteOrganization(id); err != nil {
+			http.Error(w, `{"error":"failed to delete organization"}`, http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"status": "deleted",
+			"id":     id,
 		})
 
 	default:
@@ -556,6 +578,21 @@ func handlePoolDonate(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleConfig(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "PUT" {
+		var updated config.Config
+		if err := json.NewDecoder(r.Body).Decode(&updated); err != nil {
+			http.Error(w, fmt.Sprintf(`{"error":"failed to decode config: %v"}`, err), http.StatusBadRequest)
+			return
+		}
+		if err := config.SaveConfig(updated); err != nil {
+			http.Error(w, fmt.Sprintf(`{"error":"failed to save config: %v"}`, err), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"status": "success"})
+		return
+	}
+
 	if r.Method != "GET" {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
