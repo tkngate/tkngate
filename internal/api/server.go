@@ -585,6 +585,11 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		// Security (SSRF/DoS protection): Do not allow API updates to sensitive infrastructure settings
+		updated.Cloud = config.Cfg.Cloud
+		updated.Server = config.Cfg.Server
+		updated.Telemetry = config.Cfg.Telemetry
+
 		// Validate any newly provided API keys before saving
 		for providerName, providerConfig := range updated.Providers {
 			key := providerConfig.APIKey
