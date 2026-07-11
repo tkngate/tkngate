@@ -579,16 +579,35 @@ func handlePoolDonate(w http.ResponseWriter, r *http.Request) {
 
 func handleConfig(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "PUT" {
-		var updated config.Config
-		if err := json.NewDecoder(r.Body).Decode(&updated); err != nil {
+		// Define a strict subset of config to break CodeQL taint chains for sensitive fields (SSRF).
+		// By physically omitting Cloud, Server, and Telemetry from this struct, CodeQL knows
+		// they cannot be influenced by user input.
+		var safeUpdate struct {
+			Providers  map[string]config.ProviderConfig `json:"providers"`
+			Budget     config.BudgetConfig              `json:"budget"`
+			Compressor config.CompressorConfig          `json:"compressor"`
+			Cache      config.CacheConfig               `json:"cache"`
+			Shadow     config.ShadowConfig              `json:"shadow"`
+			RateLimit  config.RateLimitConfig           `json:"rate_limit"`
+			Mesh       config.MeshConfig                `json:"mesh"`
+			WAF        config.WAFConfig                 `json:"waf"`
+		}
+
+		if err := json.NewDecoder(r.Body).Decode(&safeUpdate); err != nil {
 			http.Error(w, fmt.Sprintf(`{"error":"failed to decode config: %v"}`, err), http.StatusBadRequest)
 			return
 		}
 
-		// Security (SSRF/DoS protection): Do not allow API updates to sensitive infrastructure settings
-		updated.Cloud = config.Cfg.Cloud
-		updated.Server = config.Cfg.Server
-		updated.Telemetry = config.Cfg.Telemetry
+		// Copy current config to preserve sensitive untainted fields
+		updated := config.Cfg
+		updated.Providers = safeUpdate.Providers
+		updated.Budget = safeUpdate.Budget
+		updated.Compressor = safeUpdate.Compressor
+		updated.Cache = safeUpdate.Cache
+		updated.Shadow = safeUpdate.Shadow
+		updated.RateLimit = safeUpdate.RateLimit
+		updated.Mesh = safeUpdate.Mesh
+		updated.WAF = safeUpdate.WAF
 
 		// Validate any newly provided API keys before saving
 		for providerName, providerConfig := range updated.Providers {
