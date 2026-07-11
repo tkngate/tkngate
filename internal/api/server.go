@@ -15,10 +15,14 @@ import (
 	"tkngate/internal/budget"
 	"tkngate/internal/cache"
 	"tkngate/internal/config"
+	"tkngate/internal/crypto"
 	"tkngate/internal/logging"
 	"tkngate/internal/mesh"
 	"tkngate/internal/telemetry"
+	"tkngate/internal/validator"
+	"tkngate/internal/waf"
 
+	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -43,6 +47,13 @@ func StartTelemetryServer(host string, port int) error {
 	mux.HandleFunc("/api/v1/vkeys", withCORS(withAuth(handleVirtualKeys)))
 	mux.HandleFunc("/api/v1/orgs", withCORS(withAuth(handleOrgs)))
 	mux.HandleFunc("/api/v1/security", withCORS(withAuth(handleSecurity)))
+	mux.HandleFunc("/api/v1/budget/reset", withCORS(withAuth(handleBudgetReset)))
+	mux.HandleFunc("/api/v1/cache/clear", withCORS(withAuth(handleCacheClear)))
+	mux.HandleFunc("/api/v1/providers", withCORS(withAuth(handleProviders)))
+	mux.HandleFunc("/api/v1/providers/test", withCORS(withAuth(handleProvidersTest)))
+	mux.HandleFunc("/api/v1/pool/donate", withCORS(withAuth(handlePoolDonate)))
+	mux.HandleFunc("/api/v1/config", withCORS(withAuth(handleConfig)))
+	mux.HandleFunc("/api/v1/waf/rules", withCORS(withAuth(handleWafRules)))
 	mux.Handle("/metrics", promhttp.Handler())
 
 	// Serve the embedded React Dashboard
@@ -117,7 +128,7 @@ func withCORS(next http.HandlerFunc) http.HandlerFunc {
 		if strings.HasPrefix(origin, "http://localhost") || strings.HasPrefix(origin, "http://127.0.0.1") {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 		}
-		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
 		if r.Method == "OPTIONS" {
@@ -407,4 +418,180 @@ func handleVirtualKeys(w http.ResponseWriter, r *http.Request) {
 func sha256Sum(b []byte) []byte {
 	h := sha256.Sum256(b)
 	return h[:]
+}
+
+func handleBudgetReset(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if err := budget.GlobalLedger.Reset(); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func handleCacheClear(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if cache.GlobalCache != nil {
+		if err := cache.GlobalCache.Clear(); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func handleProviders(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	
+	safeProviders := make(map[string]interface{})
+	for name, p := range config.Cfg.Providers {
+		masked := "NOT SET"
+		if p.APIKey != "" {
+			if len(p.APIKey) <= 8 {
+				masked = strings.Repeat("•", len(p.APIKey))
+			} else {
+				masked = p.APIKey[:4] + strings.Repeat("•", len(p.APIKey)-8) + p.APIKey[len(p.APIKey)-4:]
+			}
+		}
+		endpoint := p.BaseURL
+		if endpoint == "" {
+			endpoint = "(default)"
+		}
+		safeProviders[name] = map[string]interface{}{
+			"default_model": p.DefaultModel,
+			"endpoint":      endpoint,
+			"key_status":    masked,
+			"has_key":       p.APIKey != "",
+		}
+	}
+	
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"providers": safeProviders,
+	})
+}
+
+func handleProvidersTest(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	
+	results := make(map[string]interface{})
+	for name, p := range config.Cfg.Providers {
+		if p.APIKey == "" && name != "ollama" {
+			results[name] = map[string]interface{}{"status": "skipped", "error": "No API key"}
+			continue
+		}
+		
+		err := validator.ValidateKey(name, p.APIKey)
+		if err != nil {
+			results[name] = map[string]interface{}{"status": "failed", "error": err.Error()}
+		} else {
+			results[name] = map[string]interface{}{"status": "passed", "error": ""}
+		}
+	}
+	
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"results": results,
+	})
+}
+
+func handlePoolDonate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	
+	var req struct {
+		Provider string `json:"provider"`
+		Key      string `json:"key"`
+		Limit    int    `json:"limit"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Key == "" || req.Provider == "" {
+		http.Error(w, `{"error":"provider and key required"}`, http.StatusBadRequest)
+		return
+	}
+	
+	if err := validator.ValidateKey(req.Provider, req.Key); err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":"validation failed: %v"}`, err), http.StatusBadRequest)
+		return
+	}
+	
+	encryptedKey, err := crypto.Encrypt(req.Key)
+	if err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":"encryption failed: %v"}`, err), http.StatusInternalServerError)
+		return
+	}
+	
+	node := budget.PoolNode{
+		NodeID:               uuid.New().String(),
+		ProviderType:         req.Provider,
+		BlindedKeyHash:       encryptedKey,
+		MeasuredTpmLimit:     req.Limit,
+		RemainingTokensQuota: req.Limit,
+	}
+	
+	if err := budget.GlobalLedger.AddPoolNode(node); err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":"failed to save node: %v"}`, err), http.StatusInternalServerError)
+		return
+	}
+	
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status": "donated",
+		"node_id": node.NodeID,
+	})
+}
+
+func handleConfig(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	
+	safeConfig := config.Cfg
+	
+	// Deep copy the Providers map to avoid mutating the global state!
+	safeProviders := make(map[string]config.ProviderConfig)
+	for k, p := range config.Cfg.Providers {
+		if p.APIKey != "" {
+			p.APIKey = "[REDACTED]"
+		}
+		safeProviders[k] = p
+	}
+	safeConfig.Providers = safeProviders
+	if safeConfig.Cloud.Secret != "" {
+		safeConfig.Cloud.Secret = "[REDACTED]"
+	}
+	if safeConfig.Mesh.ModerationAPIKey != "" {
+		safeConfig.Mesh.ModerationAPIKey = "[REDACTED]"
+	}
+	
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(safeConfig)
+}
+
+func handleWafRules(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"injections": waf.KnownPromptInjections,
+		"blocklist": config.Cfg.WAF.Blocklist,
+	})
 }
