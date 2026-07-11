@@ -600,7 +600,20 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 
 		// Copy current config to preserve sensitive untainted fields
 		updated := config.Cfg
-		updated.Providers = safeUpdate.Providers
+		
+		// Safely merge Providers: only allow APIKey and DefaultModel to be updated.
+		// BaseURL is preserved from the existing config to prevent SSRF via shadow mode.
+		updated.Providers = make(map[string]config.ProviderConfig)
+		for k, v := range config.Cfg.Providers {
+			updated.Providers[k] = v
+		}
+		for k, reqP := range safeUpdate.Providers {
+			p := updated.Providers[k]
+			p.APIKey = reqP.APIKey
+			p.DefaultModel = reqP.DefaultModel
+			// IMPORTANT: We DO NOT update p.BaseURL from reqP.BaseURL!
+			updated.Providers[k] = p
+		}
 		updated.Budget = safeUpdate.Budget
 		updated.Compressor = safeUpdate.Compressor
 		updated.Cache = safeUpdate.Cache
