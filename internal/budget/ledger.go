@@ -257,6 +257,13 @@ func (l *Ledger) CreateOrganization(name string, limit float64) error {
 	return err
 }
 
+func (l *Ledger) DeleteOrganization(id int) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	_, err := l.db.Exec(`DELETE FROM tkngate_organizations WHERE id = ?`, id)
+	return err
+}
+
 func (l *Ledger) GetOrganizations() ([]OrganizationRecord, error) {
 	l.mu.RLock()
 	defer l.mu.RUnlock()

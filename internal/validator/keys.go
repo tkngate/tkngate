@@ -3,6 +3,7 @@ package validator
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -49,7 +50,18 @@ func ValidateKey(provider, key string) error {
 		// We perform a simple health check. Users might pass the host URL as the 'key'.
 		endpoint := "http://localhost:11434/api/tags"
 		if strings.HasPrefix(key, "http") {
-			endpoint = strings.TrimSuffix(key, "/") + "/api/tags"
+			u, err := url.Parse(key)
+			if err != nil {
+				return fmt.Errorf("invalid ollama URL format: %v", err)
+			}
+			if u.Scheme != "http" && u.Scheme != "https" {
+				return fmt.Errorf("ollama URL must use http or https")
+			}
+			// Reconstruct URL safely to prevent SSRF path injection
+			u.Path = "/api/tags"
+			u.RawQuery = ""
+			u.Fragment = ""
+			endpoint = u.String()
 		}
 		
 		req, err := http.NewRequest("GET", endpoint, nil)
