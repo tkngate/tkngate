@@ -170,6 +170,18 @@ func validateConfig() error {
 		Cfg.Server.Host = "127.0.0.1"
 	}
 
+	// Seed all known providers so they always appear in the config/dashboard,
+	// even if the user hasn't configured them yet.
+	knownProviders := []string{"openai", "anthropic", "deepseek", "mistral", "kimi", "groq", "ollama"}
+	if Cfg.Providers == nil {
+		Cfg.Providers = make(map[string]ProviderConfig)
+	}
+	for _, p := range knownProviders {
+		if _, exists := Cfg.Providers[p]; !exists {
+			Cfg.Providers[p] = ProviderConfig{}
+		}
+	}
+
 	if Cfg.Budget.AmberThresholdPct == 0 {
 		Cfg.Budget.AmberThresholdPct = 70
 	}
@@ -223,3 +235,4 @@ func validateConfig() error {
 
 	return nil
 }
+
