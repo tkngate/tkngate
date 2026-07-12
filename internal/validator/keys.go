@@ -70,7 +70,7 @@ func ValidateKey(provider, key string) error {
 	case "groq":
 		return validateOpenAICompatible(client, key, "https://api.groq.com/openai/v1/models", "Groq")
 	default:
-		return fmt.Errorf("unsupported provider '%s' for validation. Supported providers: openai, anthropic, deepseek, kimi, groq", provider)
+		return fmt.Errorf("unsupported provider '%s' for validation. Supported providers: openai, anthropic, deepseek, mistral, kimi, groq, ollama", provider)
 	}
 }
 
