@@ -30,10 +30,11 @@ import (
 // safePoolNode is a sanitized view of PoolNode that strips the encrypted key ciphertext.
 // This prevents the AES-256-GCM ciphertext from ever being exposed over the network.
 type safePoolNode struct {
-	NodeID               string `json:"node_id"`
-	ProviderType         string `json:"provider_type"`
-	MeasuredTpmLimit     int    `json:"measured_tpm_limit"`
-	RemainingTokensQuota int    `json:"remaining_tokens_quota"`
+	NodeID               string `json:"NodeID"`
+	ProviderType         string `json:"ProviderType"`
+	MeasuredTpmLimit     int    `json:"MeasuredTpmLimit"`
+	RemainingTokensQuota int    `json:"RemainingTokensQuota"`
+	BlindedKeyHash       string `json:"BlindedKeyHash"`
 }
 
 // StartTelemetryServer starts the local REST API for telemetry data.
@@ -228,15 +229,20 @@ func handlePool(w http.ResponseWriter, r *http.Request) {
 	allNodes = append(allNodes, openaiNodes...)
 	allNodes = append(allNodes, anthropicNodes...)
 
-	// SECURITY: Strip BlindedKeyHash (AES ciphertext) before sending over the wire.
-	// Only expose safe metadata fields — never the encrypted key material.
+	// SECURITY: Expose only a short prefix of the BlindedKeyHash for display.
+	// The hash itself is AES-256-GCM ciphertext — we never expose more than a fingerprint.
 	safeNodes := make([]safePoolNode, 0, len(allNodes))
 	for _, n := range allNodes {
+		hashDisplay := n.BlindedKeyHash
+		if len(hashDisplay) > 16 {
+			hashDisplay = hashDisplay[:8] + "..." + hashDisplay[len(hashDisplay)-8:]
+		}
 		safeNodes = append(safeNodes, safePoolNode{
 			NodeID:               n.NodeID,
 			ProviderType:         n.ProviderType,
 			MeasuredTpmLimit:     n.MeasuredTpmLimit,
 			RemainingTokensQuota: n.RemainingTokensQuota,
+			BlindedKeyHash:       hashDisplay,
 		})
 	}
 
