@@ -221,13 +221,13 @@ func handlePool(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// For the dashboard, we might want to see both openai and anthropic nodes.
-	openaiNodes, _ := budget.GlobalLedger.GetPoolNodes("openai")
-	anthropicNodes, _ := budget.GlobalLedger.GetPoolNodes("anthropic")
-
+	// Fetch nodes for all supported providers.
+	allProviders := []string{"openai", "anthropic", "deepseek", "mistral", "kimi", "groq", "ollama"}
 	var allNodes []budget.PoolNode
-	allNodes = append(allNodes, openaiNodes...)
-	allNodes = append(allNodes, anthropicNodes...)
+	for _, p := range allProviders {
+		nodes, _ := budget.GlobalLedger.GetPoolNodes(p)
+		allNodes = append(allNodes, nodes...)
+	}
 
 	// SECURITY: Expose only a short prefix of the BlindedKeyHash for display.
 	// The hash itself is AES-256-GCM ciphertext — we never expose more than a fingerprint.
