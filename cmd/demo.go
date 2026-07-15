@@ -4,8 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"math/rand"
-	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -16,86 +14,12 @@ var demoCmd = &cobra.Command{
 	Use:   "demo",
 	Short: "Run the interactive traffic generator demo",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("TKNGATE Demo Traffic Generator (Go)")
-		fmt.Println("=====================================")
-
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			fmt.Println("Error:", err)
-			return
+		// 'demo' is now simply an alias for 'serve --demo' 
+		// to guarantee the dashboard always spins up for the user.
+		demoMode = true
+		if serveCmd.Run != nil {
+			serveCmd.Run(cmd, args)
 		}
-
-		dbPath := filepath.Join(homeDir, ".tkngate", "budget_demo.db")
-		fmt.Println("Database Path:", dbPath)
-
-		// Ensure the .tkngate directory exists
-		os.MkdirAll(filepath.Join(homeDir, ".tkngate"), 0755)
-
-		db, err := sql.Open("sqlite", dbPath)
-		if err != nil {
-			fmt.Println("Failed to connect to database:", err)
-			return
-		}
-		defer db.Close()
-
-		// Bootstrap demo tables so budget_demo.db is fully self-contained
-		tables := []string{
-			`CREATE TABLE IF NOT EXISTS tkngate_virtual_keys (
-				id INTEGER PRIMARY KEY AUTOINCREMENT,
-				key_hash TEXT UNIQUE,
-				name TEXT,
-				allocated_budget_usd REAL DEFAULT 0,
-				org_id INTEGER DEFAULT 0,
-				allowed_providers TEXT DEFAULT ''
-			)`,
-			`CREATE TABLE IF NOT EXISTS tkngate_sessions (
-				id INTEGER PRIMARY KEY AUTOINCREMENT,
-				session_id TEXT UNIQUE,
-				allocated_budget_usd REAL DEFAULT 0,
-				consumed_budget_usd REAL DEFAULT 0,
-				current_state TEXT DEFAULT 'GREEN',
-				created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-			)`,
-			`CREATE TABLE IF NOT EXISTS transactions (
-				id INTEGER PRIMARY KEY AUTOINCREMENT,
-				session_id TEXT,
-				provider TEXT,
-				model TEXT,
-				input_tokens INTEGER DEFAULT 0,
-				output_tokens INTEGER DEFAULT 0,
-				estimated_cost_usd REAL DEFAULT 0,
-				created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-			)`,
-			`CREATE TABLE IF NOT EXISTS mesh_reputation (
-				id INTEGER PRIMARY KEY AUTOINCREMENT,
-				node_id TEXT UNIQUE,
-				trust_score REAL DEFAULT 50.0,
-				total_requests INTEGER DEFAULT 0,
-				violations INTEGER DEFAULT 0,
-				blacklisted INTEGER DEFAULT 0,
-				last_activity DATETIME DEFAULT CURRENT_TIMESTAMP
-			)`,
-		}
-		for _, ddl := range tables {
-			if _, err := db.Exec(ddl); err != nil {
-				fmt.Println("Failed to create demo tables:", err)
-				return
-			}
-		}
-
-		var keyName string
-		err = db.QueryRow("SELECT name FROM tkngate_virtual_keys LIMIT 1").Scan(&keyName)
-		if err != nil {
-			fmt.Println("No virtual keys found. Creating a default 'Demo Key' automatically...")
-			_, err = db.Exec("INSERT INTO tkngate_virtual_keys (key_hash, name, allocated_budget_usd, org_id, allowed_providers) VALUES (?, ?, ?, ?, ?)", "demo-hash-123", "Demo Key", 500.0, 0, "")
-			if err != nil {
-				fmt.Println("Failed to create virtual key:", err)
-				return
-			}
-			keyName = "Demo Key"
-		}
-
-		GenerateDemoTraffic(db, true)
 	},
 }
 
