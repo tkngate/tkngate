@@ -295,7 +295,9 @@ func init() {
 			case "monitor(Live Traffic TUI)":
 				monitorCmd.Run(monitorCmd, []string{})
 			case "demo   (Simulate Live Traffic)":
-				demoCmd.Run(demoCmd, []string{})
+				demoMode = true
+				serveCmd.Run(serveCmd, []string{})
+				return
 			case "exit   (Close)":
 				os.Exit(0)
 			default:
