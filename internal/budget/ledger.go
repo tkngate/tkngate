@@ -234,6 +234,9 @@ func (l *Ledger) GetSessions() ([]SessionState, error) {
 			sessions = append(sessions, s)
 		}
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return sessions, nil
 }
 
@@ -302,6 +305,9 @@ func (l *Ledger) GetOrganizations() ([]OrganizationRecord, error) {
 			orgs = append(orgs, o)
 		}
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return orgs, nil
 }
 
@@ -327,6 +333,9 @@ func (l *Ledger) GetVirtualKeys() ([]VirtualKeyRecord, error) {
 		if err := rows.Scan(&k.ID, &k.KeyHash, &k.Name, &k.AllocatedBudget, &k.ConsumedBudget, &k.OrgID, &k.AllowedProviders, &k.CreatedAt); err == nil {
 			keys = append(keys, k)
 		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return keys, nil
 }
