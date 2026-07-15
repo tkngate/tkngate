@@ -216,41 +216,55 @@ func handleSessions(w http.ResponseWriter, r *http.Request) {
 }
 
 func handlePool(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	// Fetch nodes for all supported providers.
-	allProviders := []string{"openai", "anthropic", "deepseek", "mistral", "kimi", "groq", "ollama"}
-	var allNodes []budget.PoolNode
-	for _, p := range allProviders {
-		nodes, _ := budget.GlobalLedger.GetPoolNodes(p)
-		allNodes = append(allNodes, nodes...)
-	}
-
-	// SECURITY: Expose only a short prefix of the BlindedKeyHash for display.
-	// The hash itself is AES-256-GCM ciphertext — we never expose more than a fingerprint.
-	safeNodes := make([]safePoolNode, 0, len(allNodes))
-	for _, n := range allNodes {
-		hashDisplay := n.BlindedKeyHash
-		if len(hashDisplay) > 16 {
-			hashDisplay = hashDisplay[:8] + "..." + hashDisplay[len(hashDisplay)-8:]
+	switch r.Method {
+	case "GET":
+		// Fetch nodes for all supported providers.
+		allProviders := []string{"openai", "anthropic", "deepseek", "mistral", "kimi", "groq", "ollama"}
+		var allNodes []budget.PoolNode
+		for _, p := range allProviders {
+			nodes, _ := budget.GlobalLedger.GetPoolNodes(p)
+			allNodes = append(allNodes, nodes...)
 		}
-		safeNodes = append(safeNodes, safePoolNode{
-			NodeID:               n.NodeID,
-			ProviderType:         n.ProviderType,
-			MeasuredTpmLimit:     n.MeasuredTpmLimit,
-			RemainingTokensQuota: n.RemainingTokensQuota,
-			BlindedKeyHash:       hashDisplay,
-		})
-	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"nodes":      safeNodes,
-		"total_keys": len(safeNodes),
-	})
+		// SECURITY: Expose only a short prefix of the BlindedKeyHash for display.
+		// The hash itself is AES-256-GCM ciphertext — we never expose more than a fingerprint.
+		safeNodes := make([]safePoolNode, 0, len(allNodes))
+		for _, n := range allNodes {
+			hashDisplay := n.BlindedKeyHash
+			if len(hashDisplay) > 16 {
+				hashDisplay = hashDisplay[:8] + "..." + hashDisplay[len(hashDisplay)-8:]
+			}
+			safeNodes = append(safeNodes, safePoolNode{
+				NodeID:               n.NodeID,
+				ProviderType:         n.ProviderType,
+				MeasuredTpmLimit:     n.MeasuredTpmLimit,
+				RemainingTokensQuota: n.RemainingTokensQuota,
+				BlindedKeyHash:       hashDisplay,
+			})
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"nodes":      safeNodes,
+			"total_keys": len(safeNodes),
+		})
+
+	case "DELETE":
+		nodeID := r.URL.Query().Get("node_id")
+		if nodeID == "" {
+			http.Error(w, `{"error":"node_id required"}`, http.StatusBadRequest)
+			return
+		}
+		if err := budget.GlobalLedger.RemovePoolNode(nodeID); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{"status": "revoked"})
+
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
 }
 
 func handleMeshStats(w http.ResponseWriter, r *http.Request) {

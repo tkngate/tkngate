@@ -135,6 +135,21 @@ const openai = new OpenAI({
 
 ---
 
+## Running the Demo
+
+If you want to see the dashboard in action without pointing real agent traffic at it, you can use the built-in demo traffic generators. These scripts simulate live traffic, WAF intercepts, and reputation slashing without consuming any real API credits.
+
+```bash
+# Using the built-in CLI
+./tkngate demo
+
+# Using Python
+python demo_traffic.py
+```
+*Note: The demo scripts safely write to a separate `budget_demo.db` file, ensuring your real configuration and budget limits are never altered.*
+
+---
+
 ## Features
 
 - **Deficit Round Robin (DRR)** — fair, weighted routing across all nodes in the mesh

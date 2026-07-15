@@ -177,6 +177,23 @@ func (l *Ledger) AddPoolNode(node PoolNode) error {
 	return err
 }
 
+func (l *Ledger) RemovePoolNode(nodeID string) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	res, err := l.db.Exec(`DELETE FROM token_pool_nodes WHERE node_id = ?`, nodeID)
+	if err != nil {
+		return err
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
 func (l *Ledger) GetPoolNodes(provider string) ([]PoolNode, error) {
 	l.mu.RLock()
 	defer l.mu.RUnlock()

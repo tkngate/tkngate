@@ -78,10 +78,21 @@ func InitReputation(db *sql.DB) error {
 			for rows.Next() {
 				var n NodeReputation
 				var blacklisted int
-				if err := rows.Scan(&n.NodeID, &n.TrustScore, &n.TotalRequests, &n.Violations, &blacklisted, &n.LastActivity); err == nil {
+				var lastAct string
+				if err := rows.Scan(&n.NodeID, &n.TrustScore, &n.TotalRequests, &n.Violations, &blacklisted, &lastAct); err == nil {
 					n.Blacklisted = blacklisted == 1
+					if parsedTime, err := time.Parse("2006-01-02 15:04:05", lastAct); err == nil {
+						n.LastActivity = parsedTime
+					} else {
+						// fallback for RFC3339 or other formats
+						if parsedTime, err := time.Parse(time.RFC3339, lastAct); err == nil {
+							n.LastActivity = parsedTime
+						}
+					}
 					n.Tier = computeTier(n.TrustScore, n.Blacklisted)
 					mgr.nodes[n.NodeID] = &n
+				} else {
+					logging.Logger.Error("Failed to scan mesh_reputation row", "err", err)
 				}
 			}
 		}
