@@ -45,6 +45,9 @@ var serveCmd = &cobra.Command{
 		spinner.Success("Configuration loaded")
 
 		spinner, _ = pterm.DefaultSpinner.Start("Initializing budget ledger...")
+		if demoMode {
+			budget.DatabaseName = "budget_demo.db"
+		}
 		if err := budget.InitLedger(); err != nil {
 			spinner.Fail("Failed to init ledger: ", err.Error())
 			logging.Logger.Error("failed to init ledger", "error", err)

@@ -22,6 +22,8 @@ func (l *Ledger) DB() *sql.DB {
 	return l.db
 }
 
+var DatabaseName = "budget.db"
+
 func InitLedger() error {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
@@ -33,7 +35,7 @@ func InitLedger() error {
 		return err
 	}
 
-	dbPath := filepath.Join(dir, "budget.db")
+	dbPath := filepath.Join(dir, DatabaseName)
 	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		return err
