@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [v2.3.0] - Demo Scripts and Dashboard Updates
 ### Added
-- **Demo Traffic Generator**: Added a native `tkngate demo` CLI command and a Python (`demo_traffic.py`) script to generate simulated traffic for the dashboard. Both tools safely isolate data to a `budget_demo.db` file to prevent modifying production budgets.
+- **Demo Traffic Generator**: Added a native `tkngate demo` CLI command and a Python (`demo_traffic.py`) script to generate simulated traffic. You can run `./tkngate serve --demo` or select the demo option from the interactive menu to run the server and dashboard with live simulated traffic simultaneously. Standalone demo tools safely isolate data to a `budget_demo.db` file.
 
 ## [v2.2.0] - AI-WAF & ZKP Dashboard Visualization
 ### Added

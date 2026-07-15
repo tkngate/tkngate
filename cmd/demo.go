@@ -28,12 +28,60 @@ var demoCmd = &cobra.Command{
 		dbPath := filepath.Join(homeDir, ".tkngate", "budget_demo.db")
 		fmt.Println("Database Path:", dbPath)
 
+		// Ensure the .tkngate directory exists
+		os.MkdirAll(filepath.Join(homeDir, ".tkngate"), 0755)
+
 		db, err := sql.Open("sqlite", dbPath)
 		if err != nil {
 			fmt.Println("Failed to connect to database:", err)
 			return
 		}
 		defer db.Close()
+
+		// Bootstrap demo tables so budget_demo.db is fully self-contained
+		tables := []string{
+			`CREATE TABLE IF NOT EXISTS tkngate_virtual_keys (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				key_hash TEXT UNIQUE,
+				name TEXT,
+				allocated_budget_usd REAL DEFAULT 0,
+				org_id INTEGER DEFAULT 0,
+				allowed_providers TEXT DEFAULT ''
+			)`,
+			`CREATE TABLE IF NOT EXISTS tkngate_sessions (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				session_id TEXT UNIQUE,
+				allocated_budget_usd REAL DEFAULT 0,
+				consumed_budget_usd REAL DEFAULT 0,
+				current_state TEXT DEFAULT 'GREEN',
+				created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+			)`,
+			`CREATE TABLE IF NOT EXISTS transactions (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				session_id TEXT,
+				provider TEXT,
+				model TEXT,
+				input_tokens INTEGER DEFAULT 0,
+				output_tokens INTEGER DEFAULT 0,
+				estimated_cost_usd REAL DEFAULT 0,
+				created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+			)`,
+			`CREATE TABLE IF NOT EXISTS mesh_reputation (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				node_id TEXT UNIQUE,
+				trust_score REAL DEFAULT 50.0,
+				total_requests INTEGER DEFAULT 0,
+				violations INTEGER DEFAULT 0,
+				blacklisted INTEGER DEFAULT 0,
+				last_activity DATETIME DEFAULT CURRENT_TIMESTAMP
+			)`,
+		}
+		for _, ddl := range tables {
+			if _, err := db.Exec(ddl); err != nil {
+				fmt.Println("Failed to create demo tables:", err)
+				return
+			}
+		}
 
 		var keyName string
 		err = db.QueryRow("SELECT name FROM tkngate_virtual_keys LIMIT 1").Scan(&keyName)

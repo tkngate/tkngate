@@ -139,14 +139,13 @@ const openai = new OpenAI({
 
 If you want to see the dashboard in action without pointing real agent traffic at it, you can use the built-in demo traffic generators. These scripts simulate live traffic, WAF intercepts, and reputation slashing without consuming any real API credits.
 
-```bash
-# Using the built-in CLI
-./tkngate demo
+You can launch the demo in three ways:
 
-# Using Python
-python demo_traffic.py
-```
-*Note: The demo scripts safely write to a separate `budget_demo.db` file, ensuring your real configuration and budget limits are never altered.*
+1. **Interactive Menu** (Recommended): Run `./tkngate` and select `demo (Simulate Live Traffic)`. This starts the proxy, the dashboard, and the demo traffic generator simultaneously.
+2. **CLI Flag**: Run `./tkngate serve --demo`. This performs the exact same action as the interactive menu.
+3. **Standalone**: Run `./tkngate demo` or `python demo_traffic.py` if you just want to generate background traffic to an isolated database.
+
+*Note: The demo scripts safely create and write to a separate `budget_demo.db` file, ensuring your real configuration and budget limits are never altered.*
 
 ---
 
