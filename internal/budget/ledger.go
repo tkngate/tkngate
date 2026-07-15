@@ -212,6 +212,9 @@ func (l *Ledger) GetPoolNodes(provider string) ([]PoolNode, error) {
 			nodes = append(nodes, n)
 		}
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return nodes, nil
 }
 

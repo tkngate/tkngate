@@ -127,7 +127,8 @@ var demoCmd = &cobra.Command{
 		models := []string{"gpt-4o", "claude-3-5-sonnet-20240620", "deepseek-chat"}
 		states := []string{"GREEN", "GREEN", "GREEN", "GREEN", "AMBER", "RED"}
 
-		fmt.Println("Simulating live traffic. Watch the dashboard!")
+		fmt.Println("Simulating background traffic to budget_demo.db...")
+		fmt.Println("Note: Dashboard is OFFLINE in standalone mode. Run './tkngate serve --demo' if you want to watch this live.")
 		
 		rand.Seed(time.Now().UnixNano())
 
