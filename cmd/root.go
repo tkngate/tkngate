@@ -11,7 +11,7 @@ import (
 
 var rootCmd = &cobra.Command{
 	Use:     "tkngate",
-	Version: "v2.2.0",
+	Version: "v2.3.0",
 	Short:   "tkngate is an enterprise token-management reverse proxy",
 	Long: `tkngate is a zero-knowledge reverse proxy daemon for LLM APIs.
 It provides P2P token pooling, real-time budget enforcement, and semantic caching.`,
@@ -125,6 +125,7 @@ func init() {
 			"monitor(Live Traffic TUI)",
 			"config (Configure Tkngate)",
 			"pool   (P2P Mesh Pool Status)",
+			"demo   (Simulate Live Traffic)",
 			"exit   (Close)",
 		}
 
@@ -293,6 +294,8 @@ func init() {
 				}
 			case "monitor(Live Traffic TUI)":
 				monitorCmd.Run(monitorCmd, []string{})
+			case "demo   (Simulate Live Traffic)":
+				demoCmd.Run(demoCmd, []string{})
 			case "exit   (Close)":
 				os.Exit(0)
 			default:

@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.3.0] - Demo Scripts and Dashboard Updates
+### Added
+- **Demo Traffic Generator**: Added a native `tkngate demo` CLI command and a Python (`demo_traffic.py`) script to generate simulated traffic for the dashboard. Both tools safely isolate data to a `budget_demo.db` file to prevent modifying production budgets.
+
 ## [v2.2.0] - AI-WAF & ZKP Dashboard Visualization
 ### Added
 - **Security Dashboard Tab**: The embedded React telemetry dashboard (served at `:7478`) now includes a dedicated "Security" tab to visualize AI-WAF rules and ZK-SNARK Attestations.

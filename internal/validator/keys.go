@@ -57,7 +57,7 @@ func ValidateKey(provider, key string) error {
 		}
 		resp, err := client.Do(req)
 		if err != nil {
-			return fmt.Errorf("network error connecting to Ollama: %v", err)
+			return fmt.Errorf("Ollama is not running locally (could not connect to port 11434)")
 		}
 		defer resp.Body.Close()
 
