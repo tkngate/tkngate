@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.5.0] - Cross-Node Prompt Routing & E2E Security
+
+### Added
+- **Asymmetric End-to-End Encryption (E2EE)**: P2P prompts are now fully encrypted at the application layer before reaching libp2p. Nodes map their libp2p Ed25519 identity keys to the Curve25519 Montgomery curve to perform a Diffie-Hellman key exchange, deriving a secure AES-256-GCM session key via HKDF. Relay nodes and the underlying transport can only see ciphertext.
+- **Latency-Aware Peer Selection**: The routing engine now measures round-trip latency to all trusted mesh peers concurrently via `SendPing` before routing a prompt, dynamically offloading requests to the fastest available node.
+- **P2P Offload Retries**: Implemented a resilient fallback loop for prompt offloading. If the lowest-latency peer is rate-limited or out of API keys, the request seamlessly falls back to the next fastest peer in the routing table without dropping the connection.
+
+### Security
+- **Deep Security Audit**: Conducted an exhaustive security audit across P2P, WAF, Ledger, and API layers.
+- **Fixed API CORS/CSRF Vulnerability**: Hardened the local telemetry API by removing naive string prefix checks in favor of strict `url.Parse()` hostname validation, preventing DNS-rebinding and CSRF attacks.
+- **Fixed Master Key Timing Attack**: Replaced string equality checks (`==`) in the authentication middleware with `subtle.ConstantTimeCompare`, closing a timing side-channel that could allow byte-by-byte master key brute forcing.
+- **Fixed P2P DoS & OOM Vectors**: Implemented `io.LimitReader` on upstream responses and added network stream deadlines to protect against memory exhaustion and slowloris attacks.
+- **Fixed GossipSub Manipulation**: Added strict bounds clamping (`[-5, +5]`) to prevent mass-slash attacks, enforced `ReporterNodeID` validation to prevent attribution spoofing, and added 5-minute timestamp staleness checks to prevent replay attacks.
+- **Fixed P2P Provider Injection**: Enforced an explicit whitelist for allowed providers over the P2P protocol, preventing malicious peers from probing arbitrary proxy configs.
+
 ## [v2.4.0] - Global P2P Mesh Network
 ### Added
 - **Libp2p Host**: Integrated `go-libp2p` as the networking transport for the global mesh. Each TKNGATE node is now a full peer in a worldwide decentralised network, with NAT traversal (UPnP), QUIC transport, and Relay support for nodes behind strict firewalls.

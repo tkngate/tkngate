@@ -4,7 +4,7 @@
 
 <h1 align="center">Tkngate: The Enterprise AI Gateway</h1>
 <p align="center"><strong>The Cloudflare for Autonomous AI Agents</strong></p>
-<p align="center"><code>v2.4.0 — Global P2P Mesh Network</code></p>
+<p align="center"><code>v2.5.0 — Cross-Node Prompt Routing</code></p>
 <p align="center">
   <a href="#install">Install</a> •
   <a href="#quick-start">Quick Start</a> •
@@ -179,6 +179,9 @@ You can launch the demo in three ways:
 
 ## Features
 
+- **Asymmetric End-to-End Encryption (E2EE)** — Zero-trust prompt encryption using Ed25519-to-X25519 Diffie-Hellman key exchange
+- **Latency-Aware Peer Selection** — dynamically route LLM prompts to the fastest available peer in the global mesh
+- **Cross-Node Prompt Routing** — offload excess traffic to trusted mesh peers when your local rate limits are exhausted
 - **Deficit Round Robin (DRR)** — fair, weighted routing across all nodes in the mesh
 - **Enterprise Budget Guard** — hard USD limits per-session and globally, with GREEN/AMBER/RED zone alerts
 - **Semantic Caching** — up to 80% savings on repeated or similar prompts (in-memory or Redis)
