@@ -97,8 +97,11 @@ func InitReputation(db *sql.DB) error {
 					logging.Logger.Error("Failed to scan mesh_reputation row", "err", err)
 				}
 			}
+			}
+			if err := rows.Err(); err != nil {
+				logging.Logger.Error("Error iterating mesh_reputation rows", "err", err)
+			}
 		}
-	}
 
 	GlobalReputation = mgr
 	logging.Logger.Info("Mesh Reputation System initialised", "loaded_nodes", len(mgr.nodes))
