@@ -6,9 +6,10 @@ import (
 )
 
 var (
-	RawWafBlocks   int64
-	RawZkpVerified int64
-	RawZkpFailed   int64
+	RawWafBlocks          int64
+	RawZkpVerified        int64
+	RawZkpFailed          int64
+	RawPromptsOffloaded   int64
 )
 
 var (

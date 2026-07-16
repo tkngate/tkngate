@@ -3,6 +3,7 @@ module tkngate
 go 1.26.4
 
 require (
+	filippo.io/edwards25519 v1.2.0
 	github.com/consensys/gnark v0.15.0
 	github.com/consensys/gnark-crypto v0.20.1
 	github.com/google/uuid v1.6.0
