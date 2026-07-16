@@ -4,6 +4,7 @@
 
 <h1 align="center">Tkngate: The Enterprise AI Gateway</h1>
 <p align="center"><strong>The Cloudflare for Autonomous AI Agents</strong></p>
+<p align="center"><code>v2.4.0 — Global P2P Mesh Network</code></p>
 <p align="center">
   <a href="#install">Install</a> •
   <a href="#quick-start">Quick Start</a> •
@@ -101,8 +102,11 @@ p2p:
   max_peers: 100
 ```
 
-### 7. 🛡️ Live Security Dashboard
-The built-in React dashboard (`http://localhost:7478`) shows real-time WAF intercepts, ZKP attestation counts, mesh capacity, budget zones, and per-key spend — all served from the binary itself.
+### 7. 🛡️ Live Security Dashboard & Peer Reputation Leaderboard
+The built-in React dashboard (`http://localhost:7478`) shows real-time WAF intercepts, ZKP attestation counts, mesh capacity, budget zones, and per-key spend — all served from the binary itself. The **Mesh** tab now features a full **Peer Reputation Leaderboard** with trust score bars, tier badges (🏆 PREMIUM / ✓ TRUSTED / ● NEW), a Fairness Engine health indicator, and network-wide violation tracking.
+
+### 8. 🖥️ Interactive CLI
+Run `./tkngate` with no arguments to launch a beautiful interactive menu. Browse organizations, check budgets, donate API keys, view connected P2P peers, test upstream providers, or launch the demo — all without memorising CLI flags.
 
 ---
 
@@ -146,6 +150,17 @@ const openai = new OpenAI({
 });
 ```
 
+### Check Your P2P Peers
+
+```bash
+# Via interactive menu
+./tkngate
+# → Select "peers (Global P2P Mesh)"
+
+# Or directly
+./tkngate peers list
+```
+
 ---
 
 ## Running the Demo
@@ -175,7 +190,9 @@ You can launch the demo in three ways:
 - **Multi-Tenant RBAC** — Virtual Keys with per-org budgets and provider restrictions
 - **Prometheus Export** — native metrics at `/metrics` for Grafana, Datadog, or New Relic
 - **Embedded Dashboard** — real-time React UI served from the binary itself, no Node.js required
+- **Peer Reputation Leaderboard** — live dashboard table ranking mesh nodes by trust score with tier badges and violation counts
 - **Stake-and-Slash Reputation** — mesh nodes that route malicious prompts get their trust score slashed automatically
+- **Interactive CLI** — beautiful TUI menu for managing everything without memorising flags
 
 ---
 
@@ -207,6 +224,7 @@ As of `v2.0.0`, Tkngate features a full **Stake-and-Slash Reputation Engine** fo
 1. **Deficit Round Robin (DRR):** Free-riders who consume without donating are automatically throttled.
 2. **Stake-and-Slash Reputation:** Nodes route clean prompts → trust increases. Nodes route flagged prompts → trust is slashed. Low-trust nodes lose access to premium high-TPM keys.
 3. **ZK-SNARK Verification:** In `strict_zkp_mode`, every key access requires a valid zero-knowledge proof, making it impossible to abuse the mesh.
+4. **Global libp2p Networking (v2.4.0):** Nodes discover each other worldwide via **Kademlia DHT**, locally via **mDNS**, and broadcast reputation updates in real-time via **GossipSub** with Ed25519-signed messages. An **Anti-Sybil Decay** loop continuously penalises idle nodes.
 
 ---
 
