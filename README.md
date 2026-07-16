@@ -54,6 +54,7 @@ None of them offer **cryptographic prompt security**. None of them have a **P2P 
 | Single binary (no Python, no Docker) | ✅ | ❌ | ❌ | ❌ |
 | 100% self-hosted, no data leaves your machine | ✅ | ✅ | ❌ | ❌ |
 | **ZK-SNARK AI-WAF attestations** | ✅ | ❌ | ❌ | ❌ |
+| **Global P2P Mesh Network (libp2p)** | ✅ | ❌ | ❌ | ❌ |
 | **P2P encrypted key mesh (DRR)** | ✅ | ❌ | ❌ | ❌ |
 | Hard USD per-session circuit breakers | ✅ | ⚠️ soft | ⚠️ | ❌ |
 | Shadow Mode A/B traffic splitting | ✅ | ❌ | ❌ | ❌ |
@@ -88,7 +89,19 @@ Most tools let you *monitor* spend. Tkngate lets you *stop* it. The moment a ses
 ### 5. 👁️ Shadow Mode — A/B Test Any Two Models Silently
 Fork a percentage of live traffic to a second provider and compare outputs and costs — with **zero changes to your agent code**. Like Canary Deployments for LLMs.
 
-### 6. 🛡️ Live Security Dashboard
+### 6. 🌍 Global P2P Mesh Network — Decentralised Intelligence
+Tkngate nodes automatically discover each other worldwide via **Kademlia DHT** and locally via **mDNS**. Reputation updates and fraud alerts are broadcast in real-time using **GossipSub** with cryptographic signatures. An **Anti-Sybil Decay** loop continuously penalises idle nodes to prevent adversaries from building dormant proxy armies.
+
+```yaml
+p2p:
+  enabled: true
+  listen_port: 7479
+  enable_relay: true
+  enable_mdns: true
+  max_peers: 100
+```
+
+### 7. 🛡️ Live Security Dashboard
 The built-in React dashboard (`http://localhost:7478`) shows real-time WAF intercepts, ZKP attestation counts, mesh capacity, budget zones, and per-key spend — all served from the binary itself.
 
 ---

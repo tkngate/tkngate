@@ -14,6 +14,7 @@ import (
 	"tkngate/internal/limiter"
 	"tkngate/internal/logging"
 	"tkngate/internal/mesh"
+	"tkngate/internal/p2p"
 	"tkngate/internal/pool"
 	"tkngate/internal/proxy"
 	"tkngate/internal/waf"
@@ -82,6 +83,44 @@ var serveCmd = &cobra.Command{
 			spinner.Success("Reputation Engine active")
 		} else {
 			pterm.Info.Println("Reputation Engine disabled")
+		}
+
+		if config.Cfg.P2P.Enabled {
+			spinner, _ = pterm.DefaultSpinner.Start("Bootstrapping Global P2P Mesh Network...")
+			
+			if err := p2p.LoadOrGenerateIdentity(); err != nil {
+				spinner.Fail("Failed to load P2P identity: ", err.Error())
+				os.Exit(1)
+			}
+
+			// Must be passed background context for long running node
+			ctx := context.Background()
+
+			if err := p2p.InitHost(ctx); err != nil {
+				spinner.Fail("Failed to init P2P host: ", err.Error())
+				os.Exit(1)
+			}
+
+			if err := p2p.InitProtocols(); err != nil {
+				spinner.Fail("Failed to init P2P protocols: ", err.Error())
+				os.Exit(1)
+			}
+
+			if err := p2p.InitGossip(ctx); err != nil {
+				spinner.Fail("Failed to join P2P GossipSub topics: ", err.Error())
+				os.Exit(1)
+			}
+
+			// Hook reputation updates to P2P gossip
+			if mesh.GlobalReputation != nil {
+				mesh.GlobalReputation.OnReputationChange = func(nodeID string, change float64, reason string) {
+					p2p.BroadcastReputationUpdate(ctx, nodeID, change, reason)
+				}
+			}
+
+			spinner.Success("Connected to TKNGATE Global Mesh (P2P)")
+		} else {
+			pterm.Info.Println("Global P2P Mesh Network disabled")
 		}
 
 		if config.Cfg.Mesh.StrictZKPMode {
