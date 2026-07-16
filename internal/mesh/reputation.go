@@ -36,6 +36,8 @@ type ReputationManager struct {
 	mu    sync.RWMutex
 	db    *sql.DB
 	nodes map[string]*NodeReputation
+
+	OnReputationChange func(nodeID string, change float64, reason string)
 }
 
 var GlobalReputation *ReputationManager
@@ -100,7 +102,41 @@ func InitReputation(db *sql.DB) error {
 
 	GlobalReputation = mgr
 	logging.Logger.Info("Mesh Reputation System initialised", "loaded_nodes", len(mgr.nodes))
+
+	// Start decay loop
+	go mgr.StartDecayLoop()
+
 	return nil
+}
+
+// StartDecayLoop penalizes idle nodes to prevent passive Sybil armies.
+func (m *ReputationManager) StartDecayLoop() {
+	ticker := time.NewTicker(60 * time.Second)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		m.mu.Lock()
+		now := time.Now()
+		for id, rep := range m.nodes {
+			// If inactive for > 24 hours
+			if now.Sub(rep.LastActivity) > 24*time.Hour {
+				if rep.TrustScore > 0 && !rep.Blacklisted {
+					// Decay by 0.5 per check (so ~0.5 per minute after 24h, this is aggressive but good for demo)
+					rep.TrustScore -= 0.5
+					if rep.TrustScore < 0 {
+						rep.TrustScore = 0
+					}
+					rep.Tier = computeTier(rep.TrustScore, rep.Blacklisted)
+					
+					if m.db != nil {
+						m.db.Exec(`UPDATE mesh_reputation SET trust_score = ?, last_activity = ? WHERE node_id = ?`,
+							rep.TrustScore, rep.LastActivity, id) // we don't update last_activity to now, it stays old
+					}
+				}
+			}
+		}
+		m.mu.Unlock()
+	}
 }
 
 // GetOrCreate returns the reputation for a node, creating a fresh entry if new.
@@ -160,6 +196,11 @@ func (m *ReputationManager) RecordSuccess(nodeID string) {
 		m.db.Exec(`UPDATE mesh_reputation SET trust_score = ?, total_requests = ?, last_activity = ? WHERE node_id = ?`,
 			rep.TrustScore, rep.TotalRequests, rep.LastActivity, nodeID)
 	}
+
+	if m.OnReputationChange != nil {
+		// Run in goroutine to prevent blocking
+		go m.OnReputationChange(nodeID, 0.1, "Clean request")
+	}
 }
 
 // Slash penalises a node for a ToS violation. Returns true if the node is now blacklisted.
@@ -205,7 +246,33 @@ func (m *ReputationManager) Slash(nodeID string, reason string) bool {
 			rep.TrustScore, rep.Violations, blacklisted, rep.LastActivity, nodeID)
 	}
 
+	if m.OnReputationChange != nil {
+		go m.OnReputationChange(nodeID, -penalty, reason)
+	}
+
 	return rep.Blacklisted
+}
+
+// Boost applies a trust score increase (used by P2P Gossip).
+func (m *ReputationManager) Boost(nodeID string, amount float64) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	rep, ok := m.nodes[nodeID]
+	if !ok {
+		return
+	}
+
+	if !rep.Blacklisted {
+		rep.TrustScore += amount
+		if rep.TrustScore > 100.0 {
+			rep.TrustScore = 100.0
+		}
+		rep.Tier = computeTier(rep.TrustScore, rep.Blacklisted)
+		if m.db != nil {
+			m.db.Exec(`UPDATE mesh_reputation SET trust_score = ? WHERE node_id = ?`, rep.TrustScore, nodeID)
+		}
+	}
 }
 
 // IsBlacklisted returns whether a node is banned from the mesh.

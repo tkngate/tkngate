@@ -21,6 +21,16 @@ type Config struct {
 	Mesh       MeshConfig                `mapstructure:"mesh" json:"mesh"`
 	Cloud      CloudConfig               `mapstructure:"cloud" json:"cloud"`
 	WAF        WAFConfig                 `mapstructure:"waf" json:"waf"`
+	P2P        P2PConfig                 `mapstructure:"p2p" json:"p2p"`
+}
+
+type P2PConfig struct {
+	Enabled        bool     `mapstructure:"enabled" json:"enabled"`
+	ListenPort     int      `mapstructure:"listen_port" json:"listen_port"`
+	BootstrapPeers []string `mapstructure:"bootstrap_peers" json:"bootstrap_peers"`
+	EnableRelay    bool     `mapstructure:"enable_relay" json:"enable_relay"`
+	EnableMDNS     bool     `mapstructure:"enable_mdns" json:"enable_mdns"`
+	MaxPeers       int      `mapstructure:"max_peers" json:"max_peers"`
 }
 
 type WAFConfig struct {
@@ -231,6 +241,13 @@ func validateConfig() error {
 	}
 	if Cfg.Mesh.FreeRiderLimit == 0 {
 		Cfg.Mesh.FreeRiderLimit = 10000 // Default 10k token limit for free riders
+	}
+
+	if Cfg.P2P.ListenPort == 0 {
+		Cfg.P2P.ListenPort = 7479
+	}
+	if Cfg.P2P.MaxPeers == 0 {
+		Cfg.P2P.MaxPeers = 100
 	}
 
 	return nil

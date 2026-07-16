@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.4.0] - Global P2P Mesh Network
+### Added
+- **Libp2p Host**: Integrated `go-libp2p` as the networking transport for the global mesh. Each TKNGATE node is now a full peer in a worldwide decentralised network, with NAT traversal (UPnP), QUIC transport, and Relay support for nodes behind strict firewalls.
+- **Cryptographic Identity**: Each node generates a persistent Ed25519 keypair (`~/.tkngate/identity.key`) on first boot, producing a unique `PeerID` used for all P2P operations and message signing.
+- **Kademlia DHT Discovery**: Nodes find each other globally via a Kademlia Distributed Hash Table, bootstrapping from well-known libp2p relay nodes and advertising under the `tkngate-mesh-v1` rendezvous namespace.
+- **mDNS Local Discovery**: Nodes on the same LAN automatically discover each other via multicast DNS without any configuration needed.
+- **GossipSub Reputation Broadcasting**: Nodes subscribe to `/tkngate/reputation/1.0` and `/tkngate/fraud/1.0` GossipSub topics. Reputation updates and fraud proofs are cryptographically signed and propagated across the entire mesh in real-time.
+- **Custom P2P Protocols**: Implemented `/tkngate/ping/1.0.0` (latency measurement) and `/tkngate/route/1.0.0` (encrypted prompt forwarding with ZKP verification) as libp2p stream protocols.
+- **Anti-Sybil Decay Loop**: Added a background goroutine to the Reputation Engine that decays trust scores of idle nodes, preventing adversaries from building dormant Sybil armies.
+- **`Boost()` Method**: Added a reputation boost function used by GossipSub to apply positive trust changes received from remote peers.
+- **`OnReputationChange` Hook**: The reputation engine now fires a callback on every trust change, automatically broadcasting updates to the P2P mesh via GossipSub.
+- **`tkngate peers list`**: New CLI command to view all connected P2P peers and their latencies.
+- **P2P Configuration Block**: Added `p2p` section to `tkngate.yaml` with `enabled`, `listen_port`, `bootstrap_peers`, `enable_relay`, `enable_mdns`, and `max_peers` options.
+
+### Dependencies
+- Added `github.com/libp2p/go-libp2p v0.48.0`
+- Added `github.com/libp2p/go-libp2p-kad-dht v0.41.0`
+- Added `github.com/libp2p/go-libp2p-pubsub v0.17.0`
+- Added `github.com/multiformats/go-multiaddr v0.16.1`
+
 ## [v2.3.0] - Demo Scripts and Dashboard Updates
 ### Added
 - **Demo Traffic Generator**: Added a native `tkngate demo` CLI command and a Python (`demo_traffic.py`) script to generate simulated traffic. You can run `./tkngate serve --demo` or select the demo option from the interactive menu to run the server and dashboard with live simulated traffic simultaneously. Standalone demo tools safely isolate data to a `budget_demo.db` file.
