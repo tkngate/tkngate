@@ -19,6 +19,7 @@ import (
 	"tkngate/internal/crypto"
 	"tkngate/internal/logging"
 	"tkngate/internal/mesh"
+	"tkngate/internal/p2p"
 	"tkngate/internal/telemetry"
 	"tkngate/internal/validator"
 	"tkngate/internal/waf"
@@ -298,11 +299,24 @@ func handleMeshStats(w http.ResponseWriter, r *http.Request) {
 		health = "DEGRADED"
 	}
 
+	var p2pPeerID string
+	var p2pConnectedPeers int
+	p2pEnabled := false
+
+	if p2p.GlobalHost != nil {
+		p2pEnabled = true
+		p2pPeerID = p2p.GlobalHost.ID().String()
+		p2pConnectedPeers = len(p2p.GlobalHost.Network().Peers())
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"total_donated_capacity": totalCapacity,
 		"active_nodes":           activeNodes,
 		"network_health":         health,
+		"p2p_enabled":            p2pEnabled,
+		"p2p_peer_id":            p2pPeerID,
+		"p2p_connected_peers":    p2pConnectedPeers,
 		"timestamp":              time.Now(),
 	})
 }

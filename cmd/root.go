@@ -125,6 +125,7 @@ func init() {
 			"monitor(Live Traffic TUI)",
 			"config (Configure Tkngate)",
 			"pool   (P2P Mesh Pool Status)",
+			"peers  (Global P2P Mesh)",
 			"demo   (Simulate Live Traffic)",
 			"exit   (Close)",
 		}
@@ -282,6 +283,8 @@ func init() {
 					poolLimit = limit
 					donateCmd.RunE(donateCmd, []string{})
 				}
+			case "peers  (Global P2P Mesh)":
+				listPeersCmd.Run(listPeersCmd, []string{})
 			case "providers (Upstream Health)":
 				providerOpts := []string{"List Providers", "Test All Providers", "Back"}
 				provAction := createMenu("Upstream Providers", providerOpts)

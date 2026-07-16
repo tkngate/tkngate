@@ -47,6 +47,13 @@ var serveCmd = &cobra.Command{
 		spinner, _ = pterm.DefaultSpinner.Start("Initializing budget ledger...")
 		if demoMode {
 			budget.DatabaseName = "budget_demo.db"
+			
+			// Sandbox the demo server to avoid colliding with the real server
+			config.Cfg.Server.Port = 8477
+			config.Cfg.Telemetry.Port = 8478
+			
+			// Disable P2P networking to prevent demo nodes from polluting the global mesh
+			config.Cfg.P2P.Enabled = false
 		}
 		if err := budget.InitLedger(); err != nil {
 			spinner.Fail("Failed to init ledger: ", err.Error())

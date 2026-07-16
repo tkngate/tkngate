@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 	"tkngate/internal/p2p"
 	"tkngate/internal/config"
+	"tkngate/internal/logging"
 )
 
 var peersCmd = &cobra.Command{
@@ -23,6 +24,8 @@ var listPeersCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all connected P2P peers",
 	Run: func(cmd *cobra.Command, args []string) {
+		logging.InitLogger()
+		
 		if err := config.LoadConfig(); err != nil {
 			fmt.Println("Error loading config:", err)
 			os.Exit(1)
