@@ -379,6 +379,7 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 				if res.Body != nil {
 					res.Body.Close()
 				}
+				res = nil // Reset so next iteration actually calls RoundTrip
 				continue
 			} else {
 				logging.Logger.Error("Max retries exhausted for 429 Rate Limit", "provider", provider)
@@ -440,6 +441,7 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 				if res.Body != nil {
 					res.Body.Close()
 				}
+				res = nil
 				continue
 			}
 		}
@@ -562,6 +564,18 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 			if res.StatusCode >= 200 && res.StatusCode < 300 && mesh.GlobalReputation != nil && sessionID != "" {
 				mesh.GlobalReputation.RecordSuccess(sessionID)
 			}
+
+			telemetry.EmitAuditRecord(telemetry.AuditRecord{
+				Provider:     provider,
+				Model:        reqModel,
+				SessionID:    sessionID,
+				InputTokens:  inTokens,
+				OutputTokens: outTokens,
+				CostUSD:      cost,
+				LatencyMs:    latency.Milliseconds(),
+				StatusCode:   res.StatusCode,
+				Action:       "ALLOW",
+			})
 
 			logging.Logger.Info("Request handled",
 				"provider", provider,

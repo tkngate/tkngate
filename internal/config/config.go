@@ -22,6 +22,8 @@ type Config struct {
 	Cloud      CloudConfig               `mapstructure:"cloud" json:"cloud"`
 	WAF        WAFConfig                 `mapstructure:"waf" json:"waf"`
 	P2P        P2PConfig                 `mapstructure:"p2p" json:"p2p"`
+	Cluster    ClusterConfig             `mapstructure:"cluster" json:"cluster"`
+	Audit      AuditConfig               `mapstructure:"audit" json:"audit"`
 }
 
 type P2PConfig struct {
@@ -31,6 +33,18 @@ type P2PConfig struct {
 	EnableRelay    bool     `mapstructure:"enable_relay" json:"enable_relay"`
 	EnableMDNS     bool     `mapstructure:"enable_mdns" json:"enable_mdns"`
 	MaxPeers       int      `mapstructure:"max_peers" json:"max_peers"`
+}
+
+type ClusterConfig struct {
+	Enabled  bool   `mapstructure:"enabled" json:"enabled"`
+	NodeID   string `mapstructure:"node_id" json:"node_id"`
+	RedisURI string `mapstructure:"redis_uri" json:"redis_uri"`
+}
+
+type AuditConfig struct {
+	Enabled bool   `mapstructure:"enabled" json:"enabled"`
+	SinkURL string `mapstructure:"sink_url" json:"sink_url"`
+	Format  string `mapstructure:"format" json:"format"`
 }
 
 type WAFConfig struct {

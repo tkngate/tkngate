@@ -10,6 +10,7 @@ import (
 	"tkngate/internal/api"
 	"tkngate/internal/budget"
 	"tkngate/internal/cache"
+	"tkngate/internal/cluster"
 	"tkngate/internal/config"
 	"tkngate/internal/limiter"
 	"tkngate/internal/logging"
@@ -17,6 +18,7 @@ import (
 	"tkngate/internal/p2p"
 	"tkngate/internal/pool"
 	"tkngate/internal/proxy"
+	"tkngate/internal/telemetry"
 	"tkngate/internal/waf"
 	"tkngate/internal/zkp"
 
@@ -76,9 +78,21 @@ var serveCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		if config.Cfg.Cluster.Enabled {
+			spinner, _ = pterm.DefaultSpinner.Start("Initializing Cluster Mode orchestration...")
+			if err := cluster.InitCluster(); err != nil {
+				spinner.Fail("Failed to init cluster: ", err.Error())
+				logging.Logger.Error("FATAL: failed to init cluster", "error", err)
+				os.Exit(1)
+			}
+			spinner.Success("Cluster Mode active")
+		}
+
 		spinner, _ = pterm.DefaultSpinner.Start("Initializing DRR mesh pool...")
 		pool.InitDRR()
 		spinner.Success("DRR Mesh Pool active")
+
+		telemetry.InitAuditShipper()
 
 		if config.Cfg.Mesh.ReputationEnabled {
 			spinner, _ = pterm.DefaultSpinner.Start("Initializing Stake-and-Slash Reputation Engine...")

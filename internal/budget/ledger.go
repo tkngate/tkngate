@@ -1,13 +1,17 @@
 package budget
 
 import (
+	"context"
 	"database/sql"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
+	"strconv"
 
 	_ "modernc.org/sqlite"
+	"tkngate/internal/cluster"
+	"tkngate/internal/config"
 )
 
 type Ledger struct {
@@ -113,6 +117,18 @@ func (l *Ledger) RecordTransaction(tx Transaction) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
+	if config.Cfg.Cluster.Enabled && cluster.RedisClient != nil {
+		ctx := context.Background()
+		// Write to Redis for shared state
+		cluster.RedisClient.IncrByFloat(ctx, "tkngate:budget:global_spend", tx.EstimatedCostUSD)
+		if tx.SessionID != "" {
+			cluster.RedisClient.IncrByFloat(ctx, "tkngate:budget:session:"+tx.SessionID, tx.EstimatedCostUSD)
+		}
+		if tx.VirtualKeyHash != "" {
+			cluster.RedisClient.IncrByFloat(ctx, "tkngate:budget:vkey:"+tx.VirtualKeyHash, tx.EstimatedCostUSD)
+		}
+	}
+
 	query := `INSERT INTO transactions (session_id, provider, model, input_tokens, output_tokens, estimated_cost_usd, timestamp) 
 			  VALUES (?, ?, ?, ?, ?, ?, ?)`
 
@@ -138,6 +154,13 @@ func (l *Ledger) GetTotalSpend() (float64, error) {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
 
+	if config.Cfg.Cluster.Enabled && cluster.RedisClient != nil {
+		val, err := cluster.RedisClient.Get(context.Background(), "tkngate:budget:global_spend").Result()
+		if err == nil {
+			return strconv.ParseFloat(val, 64)
+		}
+	}
+
 	var total float64
 	err := l.db.QueryRow(`SELECT COALESCE(SUM(estimated_cost_usd), 0.0) FROM transactions`).Scan(&total)
 	return total, err
@@ -157,6 +180,13 @@ func (l *Ledger) Reset() error {
 func (l *Ledger) GetSessionSpend(sessionID string) (float64, error) {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
+
+	if config.Cfg.Cluster.Enabled && cluster.RedisClient != nil {
+		val, err := cluster.RedisClient.Get(context.Background(), "tkngate:budget:session:"+sessionID).Result()
+		if err == nil {
+			return strconv.ParseFloat(val, 64)
+		}
+	}
 
 	var total float64
 	err := l.db.QueryRow(`SELECT COALESCE(SUM(estimated_cost_usd), 0.0) FROM transactions WHERE session_id = ?`, sessionID).Scan(&total)

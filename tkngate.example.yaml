@@ -64,3 +64,21 @@ waf:
     - "(?i)competitor_name"            # Block case-insensitive mentions of a competitor
     - "(?i)ignore all previous"        # Block classic prompt injections
     - "\\b4[0-9]{12}(?:[0-9]{3})?\\b"  # Custom regex for Visa credit cards
+
+p2p:
+  enabled: true
+  listen_port: 7479
+  bootstrap_peers: []
+  enable_relay: true
+  enable_mdns: true
+  max_peers: 100
+
+cluster:
+  enabled: false
+  node_id: "node-1"
+  redis_uri: "redis://localhost:6379"
+
+audit:
+  enabled: false
+  sink_url: "https://http-intake.logs.datadoghq.com/v1/input"
+  format: "json"

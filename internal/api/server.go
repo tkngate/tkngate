@@ -60,6 +60,8 @@ func StartTelemetryServer(host string, port int) error {
 	mux.HandleFunc("/api/v1/config", withCORS(withAuth(handleConfig)))
 	mux.HandleFunc("/api/v1/waf/rules", withCORS(withAuth(handleWafRules)))
 	mux.Handle("/metrics", promhttp.Handler())
+	mux.HandleFunc("/healthz", handleHealthz)
+	mux.HandleFunc("/readyz", handleReadyz)
 
 	// Serve the embedded React Dashboard
 	subFS, err := fs.Sub(DashboardFS, "ui/dist")
@@ -722,4 +724,22 @@ func handleWafRules(w http.ResponseWriter, r *http.Request) {
 		"injections": waf.KnownPromptInjections,
 		"blocklist": config.Cfg.WAF.Blocklist,
 	})
+}
+
+func handleHealthz(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("OK"))
+}
+
+func handleReadyz(w http.ResponseWriter, r *http.Request) {
+	// Check database readiness
+	if budget.GlobalLedger == nil || budget.GlobalLedger.DB() == nil {
+		http.Error(w, "Database not ready", http.StatusServiceUnavailable)
+		return
+	}
+	
+	// Add Redis check if cluster mode is enabled later
+	
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("READY"))
 }
