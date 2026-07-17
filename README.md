@@ -3,7 +3,7 @@
 </p>
 
 <h1 align="center">Tkngate: The Enterprise AI Gateway</h1>
-<p align="center"><strong>The Cloudflare for Autonomous AI Agents</strong></p>
+<p align="center"><strong>Zero-trust P2P gateway for LLM agents</strong></p>
 <p align="center"><code>v2.5.0 — Cross-Node Prompt Routing</code></p>
 <p align="center">
   <a href="#install">Install</a> •
