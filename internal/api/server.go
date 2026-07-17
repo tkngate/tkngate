@@ -3,10 +3,12 @@ package api
 import (
 	cryptoRand "crypto/rand"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"io/fs"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -113,7 +115,7 @@ func withAuth(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		token := strings.TrimPrefix(authHeader, "Bearer ")
-		if token != masterKey {
+		if subtle.ConstantTimeCompare([]byte(token), []byte(masterKey)) != 1 {
 			logging.Logger.Warn("Unauthorized telemetry API access attempt")
 			http.Error(w, `{"error":"Invalid bearer token"}`, http.StatusForbidden)
 			return
@@ -127,9 +129,14 @@ func withAuth(next http.HandlerFunc) http.HandlerFunc {
 func withCORS(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
-		// Only allow localhost origins (any port)
-		if strings.HasPrefix(origin, "http://localhost") || strings.HasPrefix(origin, "http://127.0.0.1") {
-			w.Header().Set("Access-Control-Allow-Origin", origin)
+		// Security: Only allow exactly localhost or 127.0.0.1 on any port.
+		// Use url.Parse to strictly validate the hostname and prevent bypasses like localhost.attacker.com
+		if origin != "" {
+			if u, err := url.Parse(origin); err == nil {
+				if u.Hostname() == "localhost" || u.Hostname() == "127.0.0.1" {
+					w.Header().Set("Access-Control-Allow-Origin", origin)
+				}
+			}
 		}
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
@@ -317,6 +324,7 @@ func handleMeshStats(w http.ResponseWriter, r *http.Request) {
 		"p2p_enabled":            p2pEnabled,
 		"p2p_peer_id":            p2pPeerID,
 		"p2p_connected_peers":    p2pConnectedPeers,
+		"p2p_prompts_offloaded":  atomic.LoadInt64(&telemetry.RawPromptsOffloaded),
 		"timestamp":              time.Now(),
 	})
 }

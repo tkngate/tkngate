@@ -21,6 +21,7 @@ import (
 	"tkngate/internal/limiter"
 	"tkngate/internal/logging"
 	"tkngate/internal/mesh"
+	"tkngate/internal/p2p"
 	"tkngate/internal/pool"
 	"tkngate/internal/telemetry"
 	"tkngate/internal/tokenizer"
@@ -330,10 +331,40 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 				} else {
 					logging.Logger.Info("DRR Engine rotated key", "provider", provider)
 				}
+			} else if config.Cfg.P2P.Enabled {
+				// No local keys available! Attempt P2P offloading.
+				p2pResp, p2pErr := p2p.OffloadRequest(req.Context(), provider, reqModel, sessionID, estimatedTokens, inputBody)
+				if p2pErr == nil && p2pResp != nil && p2pResp.Success {
+					mockRes := &http.Response{
+						Status:        "200 OK",
+						StatusCode:    200,
+						Proto:         "HTTP/1.1",
+						ProtoMajor:    1,
+						ProtoMinor:    1,
+						Body:          io.NopCloser(bytes.NewReader(p2pResp.EncryptedResponse)),
+						ContentLength: int64(len(p2pResp.EncryptedResponse)),
+						Header:        make(http.Header),
+					}
+					mockRes.Header.Set("Content-Type", "application/json")
+					res = mockRes
+					roundTripErr = nil
+					atomic.AddInt64(&telemetry.RawPromptsOffloaded, 1)
+					logging.Logger.Info("Successfully offloaded prompt to P2P mesh", "provider", provider)
+					break // Break out of retry loop, we got our response!
+				} else {
+					if p2pErr != nil {
+						logging.Logger.Warn("P2P offload failed", "err", p2pErr)
+					} else if p2pResp != nil {
+						logging.Logger.Warn("P2P peer rejected prompt", "peer_error", p2pResp.ErrorMessage)
+					}
+				}
 			}
 		}
 
-		res, roundTripErr = t.Transport.RoundTrip(req)
+		// Only do actual RoundTrip if we didn't already get a P2P mock response
+		if res == nil {
+			res, roundTripErr = t.Transport.RoundTrip(req)
+		}
 		if roundTripErr != nil {
 			break // Break on hard network errors
 		}

@@ -103,12 +103,33 @@ func handleReputationMessages(ctx context.Context) {
 			continue
 		}
 
+		// Security: Validate that the reporter is actually the sender
+		if update.ReporterNodeID != msg.ReceivedFrom.String() {
+			logging.Logger.Warn("Reputation update reporter mismatch (spoofing attempt)",
+				"claimed", update.ReporterNodeID, "actual", msg.ReceivedFrom)
+			continue
+		}
+
+		// Security: Reject stale updates (older than 5 minutes) to prevent replay attacks
+		if time.Now().Unix()-update.Timestamp > 300 {
+			logging.Logger.Debug("Stale reputation update rejected", "age_seconds", time.Now().Unix()-update.Timestamp)
+			continue
+		}
+
+		// Security: Clamp trust score change to [-5, +5] to prevent mass-slashing
+		clampedChange := update.TrustScoreChange
+		if clampedChange < -5.0 {
+			clampedChange = -5.0
+		} else if clampedChange > 5.0 {
+			clampedChange = 5.0
+		}
+
 		// Apply update to local mesh reputation
 		if mesh.GlobalReputation != nil {
-			if update.TrustScoreChange < 0 {
+			if clampedChange < 0 {
 				mesh.GlobalReputation.Slash(update.SubjectNodeID, fmt.Sprintf("P2P Slash from %s: %s", update.ReporterNodeID, update.Reason))
-			} else if update.TrustScoreChange > 0 {
-				mesh.GlobalReputation.Boost(update.SubjectNodeID, update.TrustScoreChange)
+			} else if clampedChange > 0 {
+				mesh.GlobalReputation.Boost(update.SubjectNodeID, clampedChange)
 			}
 		}
 	}
