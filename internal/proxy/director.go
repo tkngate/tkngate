@@ -9,27 +9,62 @@ import (
 	"tkngate/internal/config"
 )
 
+func getDefaultBaseURL(provider string) string {
+	switch provider {
+	case "openai":
+		return "https://api.openai.com"
+	case "anthropic":
+		return "https://api.anthropic.com"
+	case "deepseek":
+		return "https://api.deepseek.com"
+	case "mistral":
+		return "https://api.mistral.ai"
+	case "kimi":
+		return "https://api.moonshot.cn"
+	case "groq":
+		return "https://api.groq.com/openai"
+	case "ollama":
+		return "http://127.0.0.1:11434"
+	default:
+		return "https://api.openai.com"
+	}
+}
+
 // Director modifies the request before it is sent to the backend.
 func Director(req *http.Request) {
-	// Example path: /openai/chat/completions -> Provider = openai
-	pathParts := strings.SplitN(strings.TrimPrefix(req.URL.Path, "/"), "/", 2)
-	if len(pathParts) < 1 {
+	// Example path: /openai/v1/chat/completions -> Provider = openai
+	// Or standard OpenAI SDK: /v1/chat/completions -> Provider defaults to openai
+	cleanPath := strings.TrimPrefix(req.URL.Path, "/")
+	pathParts := strings.SplitN(cleanPath, "/", 2)
+	
+	if len(pathParts) < 1 || cleanPath == "" {
 		return
 	}
 
 	providerKey := pathParts[0]
 	providerCfg, ok := config.Cfg.Providers[providerKey]
+	
+	var newPath string
+	
 	if !ok {
-		return
+		// If the first segment isn't a known provider (e.g. "v1"), default to OpenAI
+		// This makes Tkngate a 100% drop-in replacement for the OpenAI SDK without URL hacks.
+		providerKey = "openai"
+		providerCfg = config.Cfg.Providers[providerKey]
+		newPath = "/" + cleanPath
+	} else {
+		// We matched a provider prefix. Strip it from the forwarded path.
+		if len(pathParts) > 1 {
+			newPath = "/" + pathParts[1]
+		} else {
+			newPath = "/"
+		}
 	}
 
 	// Determine backend URL
 	baseURL := strings.TrimSuffix(providerCfg.BaseURL, "/")
-
-	// Reconstruct the intended path
-	newPath := ""
-	if len(pathParts) > 1 {
-		newPath = "/" + pathParts[1]
+	if baseURL == "" {
+		baseURL = getDefaultBaseURL(providerKey)
 	}
 
 	// Update request URL
@@ -51,6 +86,12 @@ func Director(req *http.Request) {
 
 	req.Host = req.URL.Host
 
+	// Save original auth header before overwriting so middleware can extract the virtual key
+	originalAuth := req.Header.Get("Authorization")
+	if originalAuth != "" {
+		req.Header.Set("X-Tkngate-Original-Auth", originalAuth)
+	}
+
 	// Inject authentication
 	if providerKey == "anthropic" {
 		req.Header.Set("x-api-key", providerCfg.APIKey)
@@ -58,6 +99,9 @@ func Director(req *http.Request) {
 	} else {
 		req.Header.Set("Authorization", "Bearer "+providerCfg.APIKey)
 	}
+
+	// Tell the middleware which provider we resolved
+	req.Header.Set("X-Tkngate-Provider", providerKey)
 
 	// If there's a body, we might need to peek at it later for token counting.
 	// But `Director` isn't the best place for it because we can't easily capture the response here.

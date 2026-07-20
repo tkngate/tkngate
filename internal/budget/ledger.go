@@ -235,7 +235,7 @@ func (l *Ledger) GetPoolNodes(provider string) ([]PoolNode, error) {
 	}
 	defer rows.Close()
 
-	var nodes []PoolNode
+	var nodes = []PoolNode{}
 	for rows.Next() {
 		var n PoolNode
 		if err := rows.Scan(&n.NodeID, &n.ProviderType, &n.BlindedKeyHash, &n.MeasuredTpmLimit, &n.RemainingTokensQuota); err == nil {
@@ -257,7 +257,7 @@ func (l *Ledger) GetSessions() ([]SessionState, error) {
 	}
 	defer rows.Close()
 
-	var sessions []SessionState
+	var sessions = []SessionState{}
 	for rows.Next() {
 		var s SessionState
 		if err := rows.Scan(&s.SessionID, &s.AllocatedBudget, &s.ConsumedBudget, &s.CurrentState, &s.CreatedAt); err == nil {

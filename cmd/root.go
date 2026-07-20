@@ -11,7 +11,7 @@ import (
 
 var rootCmd = &cobra.Command{
 	Use:     "tkngate",
-	Version: "v2.4.0",
+	Version: "v2.6.0",
 	Short:   "tkngate is an enterprise token-management reverse proxy",
 	Long: `tkngate is a zero-knowledge reverse proxy daemon for LLM APIs.
 It provides P2P token pooling, real-time budget enforcement, and semantic caching.`,
@@ -108,7 +108,7 @@ func init() {
 
 		// ── Info box ──
 		fmt.Println(Gold("┌────────────────────────────────────────────────────────┐"))
-		fmt.Println(Gold("│") + "  The Cloudflare for Autonomous AI Agents               " + Gold("│"))
+		fmt.Println(Gold("│") + "  The open-source API gateway for AI agents             " + Gold("│"))
 		fmt.Println(Gold("│") + "  " + Parch("Enterprise zero-knowledge reverse proxy for LLM APIs") + "  " + Gold("│"))
 		fmt.Println(Gold("└────────────────────────────────────────────────────────┘"))
 		fmt.Println()

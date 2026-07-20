@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.6.0] - Fleet Orchestration & Enterprise Readiness
+
+### Added
+- **Cluster Mode**: Tkngate can now be deployed as a highly-available, coordinated fleet of proxy nodes rather than just standalone instances.
+- **Leader Election**: Implemented a robust Redis-backed distributed locking mechanism using atomic Lua scripts to elect a single orchestrator node, complete with automatic lease renewals and 10s TTLs for failover protection.
+- **Shared Redis State**: The core budget ledger now supports dual-path operations. When Cluster Mode is enabled, all nodes synchronize global spend and session state atomically via Redis `INCRBYFLOAT`, preventing read-modify-write race conditions in distributed setups.
+- **Centralized Audit Logging**: Added a batched, asynchronous HTTP shipper (`internal/telemetry/audit.go`) that buffers proxy decision events (ALLOW, BLOCK_WAF, etc.) and flushes them to a configurable remote sink to provide unified compliance monitoring across the fleet.
+- **Load Balancer Integration**: Added `/healthz` (liveness) and `/readyz` (readiness) endpoints to `internal/api/server.go`. The readiness probe actively verifies database connectivity and automatically returns a 503 if the node is unhealthy, allowing load balancers (like HAProxy/Nginx) to safely drain traffic.
+
+
+
 ## [v2.5.0] - Cross-Node Prompt Routing & E2E Security
 
 ### Added

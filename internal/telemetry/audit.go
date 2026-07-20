@@ -32,9 +32,12 @@ type AuditRecord struct {
 }
 
 var (
-	auditMu     sync.Mutex
-	auditBuffer []AuditRecord
-	auditOnce   sync.Once
+	auditMu       sync.Mutex
+	auditBuffer   []AuditRecord
+	uiAuditBuffer [200]AuditRecord
+	uiAuditIndex  int
+	uiAuditCount  int
+	auditOnce     sync.Once
 )
 
 // InitAuditShipper starts the background goroutine that flushes the audit buffer.
@@ -67,6 +70,13 @@ func EmitAuditRecord(rec AuditRecord) {
 
 	auditMu.Lock()
 	auditBuffer = append(auditBuffer, rec)
+	
+	uiAuditBuffer[uiAuditIndex] = rec
+	uiAuditIndex = (uiAuditIndex + 1) % 200
+	if uiAuditCount < 200 {
+		uiAuditCount++
+	}
+
 	// If buffer exceeds 500 records, flush immediately to prevent OOM.
 	shouldFlush := len(auditBuffer) >= 500
 	auditMu.Unlock()
@@ -74,6 +84,29 @@ func EmitAuditRecord(rec AuditRecord) {
 	if shouldFlush {
 		go flushAuditBuffer()
 	}
+}
+
+// GetRecentAuditRecords returns the last N records for the dashboard UI.
+func GetRecentAuditRecords() []AuditRecord {
+	auditMu.Lock()
+	defer auditMu.Unlock()
+	
+	result := make([]AuditRecord, 0, uiAuditCount)
+	if uiAuditCount == 0 {
+		return result
+	}
+	
+	if uiAuditCount < 200 {
+		for i := 0; i < uiAuditCount; i++ {
+			result = append(result, uiAuditBuffer[i])
+		}
+	} else {
+		for i := 0; i < 200; i++ {
+			idx := (uiAuditIndex + i) % 200
+			result = append(result, uiAuditBuffer[idx])
+		}
+	}
+	return result
 }
 
 func flushAuditBuffer() {

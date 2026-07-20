@@ -88,3 +88,27 @@ func electLeader() {
 		}
 	}
 }
+
+// GetClusterStatus returns the current Redis cluster state for the dashboard.
+func GetClusterStatus() map[string]interface{} {
+	status := map[string]interface{}{
+		"enabled":         config.Cfg.Cluster.Enabled,
+		"node_id":         config.Cfg.Cluster.NodeID,
+		"redis_connected": false,
+		"is_leader":       IsLeader,
+		"active_nodes":    1, // Default to 1 (self) if not using full node registration yet
+	}
+
+	if !config.Cfg.Cluster.Enabled || RedisClient == nil {
+		return status
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	if err := RedisClient.Ping(ctx).Err(); err == nil {
+		status["redis_connected"] = true
+	}
+
+	return status
+}

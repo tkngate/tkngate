@@ -2,7 +2,7 @@
 # TKNGATE — Multi-Stage Production Dockerfile
 # ============================================
 # Stage 1: Build the Go binary
-FROM golang:1.24-alpine AS builder
+FROM golang:1.26-alpine AS builder
 
 RUN apk add --no-cache gcc musl-dev
 
@@ -16,6 +16,8 @@ RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w" -o tkngate .
 # ============================================
 # Stage 2: Minimal production image
 FROM alpine:3.21
+
+LABEL org.opencontainers.image.source="https://github.com/tkngate/tkngate"
 
 RUN apk add --no-cache ca-certificates tzdata
 
