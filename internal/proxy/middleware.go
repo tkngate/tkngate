@@ -2,6 +2,8 @@ package proxy
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -40,10 +42,9 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 	start := time.Now()
 
-	pathParts := strings.SplitN(strings.TrimPrefix(req.URL.Path, "/"), "/", 2)
-	provider := "unknown"
-	if len(pathParts) > 0 {
-		provider = pathParts[0]
+	provider := req.Header.Get("X-Tkngate-Provider")
+	if provider == "" {
+		provider = "openai" // fallback
 	}
 
 	// 1. BUDGET GUARD (Global)
@@ -57,7 +58,12 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 	// v1.3.0: VIRTUAL KEY AUTHENTICATION
 	// Clients must provide `Authorization: Bearer tkngate-sk-...`
-	authHeader := req.Header.Get("Authorization")
+	// Director saves the original Auth header to X-Tkngate-Original-Auth before injecting the upstream API key.
+	authHeader := req.Header.Get("X-Tkngate-Original-Auth")
+	if authHeader == "" {
+		authHeader = req.Header.Get("Authorization")
+	}
+
 	var authenticatedKeyHash string
 	var sessionID string
 	var piiFlagged bool
@@ -98,7 +104,10 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 			keys, err := budget.GlobalLedger.GetVirtualKeys()
 			if err == nil {
 				for _, k := range keys {
-					if auth.VerifyKey(virtualKey, k.KeyHash) {
+					// Support both SHA-256 (dashboard API) and bcrypt (CLI) key hashes
+					sha := sha256.Sum256([]byte(virtualKey))
+					shaHex := hex.EncodeToString(sha[:])
+					if shaHex == k.KeyHash || auth.VerifyKey(virtualKey, k.KeyHash) {
 						authenticatedKeyHash = k.KeyHash
 						sessionID = k.Name // Map the virtual key name to the session ID for legacy tracking
 						
@@ -353,7 +362,7 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 					break // Break out of retry loop, we got our response!
 				} else {
 					if p2pErr != nil {
-						logging.Logger.Warn("P2P offload failed", "err", p2pErr)
+						logging.Logger.Debug("P2P offload failed", "err", p2pErr)
 					} else if p2pResp != nil {
 						logging.Logger.Warn("P2P peer rejected prompt", "peer_error", p2pResp.ErrorMessage)
 					}
@@ -379,6 +388,7 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 				if res.Body != nil {
 					res.Body.Close()
 				}
+				res = nil // Reset so next iteration actually calls RoundTrip
 				continue
 			} else {
 				logging.Logger.Error("Max retries exhausted for 429 Rate Limit", "provider", provider)
@@ -440,6 +450,7 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 				if res.Body != nil {
 					res.Body.Close()
 				}
+				res = nil
 				continue
 			}
 		}
@@ -507,95 +518,133 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 			res.Header.Set("X-Tkngate-Cache", "MISS")
 		}
 
-		// 5. TOKEN COUNTING & LEDGER UPDATE
-		go func() {
-			inTokens := 0
-			outTokens := 0
+		// 5. TOKEN COUNTING & LEDGER UPDATE (synchronous to prevent race conditions)
+		// Extract real token counts from the provider's response JSON when available.
+		// This ensures our cost tracking exactly matches the provider's dashboard.
+		inTokens := 0
+		outTokens := 0
+		var realModel string
 
+		if len(outputBody) > 0 && res.StatusCode >= 200 && res.StatusCode < 300 {
+			var respJSON struct {
+				Model string `json:"model"`
+				Usage struct {
+					PromptTokens     int `json:"prompt_tokens"`
+					CompletionTokens int `json:"completion_tokens"`
+					TotalTokens      int `json:"total_tokens"`
+				} `json:"usage"`
+			}
+			if jsonErr := json.Unmarshal(outputBody, &respJSON); jsonErr == nil && respJSON.Usage.TotalTokens > 0 {
+				inTokens = respJSON.Usage.PromptTokens
+				outTokens = respJSON.Usage.CompletionTokens
+				realModel = respJSON.Model
+			}
+		}
+
+		// Fallback to heuristic counting if the response didn't include usage data
+		if inTokens == 0 && outTokens == 0 {
 			if len(inputBody) > 0 {
 				inTokens = t.Counter.Count(string(inputBody), reqModel)
 			}
 			if len(outputBody) > 0 {
 				outTokens = t.Counter.Count(string(outputBody), reqModel)
 			}
+		}
 
-			cost := tokenizer.EstimateCost(provider, reqModel, inTokens, outTokens)
-			latency := time.Since(start)
+		// Use the model name from the response if available (e.g., "deepseek-v4-flash")
+		if realModel != "" {
+			reqModel = realModel
+		}
 
-			if config.Cfg.Cloud.Enabled {
-				// We don't have true TTFT for non-streaming, so we just use full latency
-				cloud.ReportUsage(cloud.UsageReport{
-					KeyID:            authenticatedKeyHash, // mapped to cloudKeyID
-					Provider:         provider,
-					Model:            reqModel,
-					PromptTokens:     inTokens,
-					CompletionTokens: outTokens,
-					CostUSD:          cost,
-					LatencyMs:        int(latency.Milliseconds()),
-					TTFTMs:           int(latency.Milliseconds()), 
-					FlaggedPII:       piiFlagged,
-					WasFailover:      wasFailover,
-					StatusCode:       res.StatusCode,
-				})
-			} else {
-				tx := budget.Transaction{
-					SessionID:        sessionID,
-					VirtualKeyHash:   authenticatedKeyHash,
-					Provider:         provider,
-					Model:            reqModel,
-					InputTokens:      inTokens,
-					OutputTokens:     outTokens,
-					EstimatedCostUSD: cost,
-				}
-				if err := budget.GlobalLedger.RecordTransaction(tx); err != nil {
-					logging.Logger.Error("failed to record transaction", "error", err)
-				}
+		cost := tokenizer.EstimateCost(provider, reqModel, inTokens, outTokens)
+		latency := time.Since(start)
+
+		// Record transaction SYNCHRONOUSLY so the next request's budget check
+		// sees the updated spend immediately — prevents parallel overspend.
+		if config.Cfg.Cloud.Enabled {
+			cloud.ReportUsage(cloud.UsageReport{
+				KeyID:            authenticatedKeyHash,
+				Provider:         provider,
+				Model:            reqModel,
+				PromptTokens:     inTokens,
+				CompletionTokens: outTokens,
+				CostUSD:          cost,
+				LatencyMs:        int(latency.Milliseconds()),
+				TTFTMs:           int(latency.Milliseconds()),
+				FlaggedPII:       piiFlagged,
+				WasFailover:      wasFailover,
+				StatusCode:       res.StatusCode,
+			})
+		} else {
+			tx := budget.Transaction{
+				SessionID:        sessionID,
+				VirtualKeyHash:   authenticatedKeyHash,
+				Provider:         provider,
+				Model:            reqModel,
+				InputTokens:      inTokens,
+				OutputTokens:     outTokens,
+				EstimatedCostUSD: cost,
 			}
-
-			telemetry.RequestsTotal.WithLabelValues(provider, fmt.Sprintf("%d", res.StatusCode)).Inc()
-			telemetry.TokensConsumedTotal.Add(float64(inTokens + outTokens))
-			telemetry.BudgetSpentTotal.Add(cost)
-			if authenticatedKeyHash != "" {
-				telemetry.VirtualKeySpend.WithLabelValues(authenticatedKeyHash).Add(cost)
+			if err := budget.GlobalLedger.RecordTransaction(tx); err != nil {
+				logging.Logger.Error("failed to record transaction", "error", err)
 			}
+		}
 
-			if res.StatusCode >= 200 && res.StatusCode < 300 && mesh.GlobalReputation != nil && sessionID != "" {
-				mesh.GlobalReputation.RecordSuccess(sessionID)
-			}
+		telemetry.RequestsTotal.WithLabelValues(provider, fmt.Sprintf("%d", res.StatusCode)).Inc()
+		telemetry.TokensConsumedTotal.Add(float64(inTokens + outTokens))
+		telemetry.BudgetSpentTotal.Add(cost)
+		if authenticatedKeyHash != "" {
+			telemetry.VirtualKeySpend.WithLabelValues(authenticatedKeyHash).Add(cost)
+		}
 
-			logging.Logger.Info("Request handled",
-				"provider", provider,
-				"model", reqModel,
-				"cost_usd", cost,
-				"latency_ms", latency.Milliseconds(),
-				"zone", status.Zone)
-		}()
+		if res.StatusCode >= 200 && res.StatusCode < 300 && mesh.GlobalReputation != nil && sessionID != "" {
+			mesh.GlobalReputation.RecordSuccess(sessionID)
+		}
+
+		telemetry.EmitAuditRecord(telemetry.AuditRecord{
+			Provider:     provider,
+			Model:        reqModel,
+			SessionID:    sessionID,
+			InputTokens:  inTokens,
+			OutputTokens: outTokens,
+			CostUSD:      cost,
+			LatencyMs:    latency.Milliseconds(),
+			StatusCode:   res.StatusCode,
+			Action:       "ALLOW",
+		})
+
+		logging.Logger.Info("Request handled",
+			"provider", provider,
+			"model", reqModel,
+			"cost_usd", cost,
+			"latency_ms", latency.Milliseconds(),
+			"zone", status.Zone)
 	}
 
 	// 6. SHADOW MODE (v1.1.0) — Fire-and-forget mirror to a shadow provider
 	if config.Cfg.Shadow.Enabled && len(inputBody) > 0 && strings.HasSuffix(req.URL.Path, "/chat/completions") {
 		if rand.Float64() < config.Cfg.Shadow.TrafficFraction {
-			go fireShadowRequest(inputBody, config.Cfg.Shadow.TargetProvider, config.Cfg.Shadow.TargetModel)
+			go fireShadowRequest(inputBody, provider, config.Cfg.Shadow.TargetProvider, config.Cfg.Shadow.TargetModel)
 		}
 	}
 
 	return res, nil
 }
 
-func fireShadowRequest(body []byte, provider string, model string) {
+func fireShadowRequest(body []byte, primaryProvider string, shadowProvider string, shadowModel string) {
 	defer func() {
 		if r := recover(); r != nil {
 			logging.Logger.Error("Shadow mode panic recovered", "error", r)
 		}
 	}()
 
-	providerCfg, ok := config.Cfg.Providers[provider]
+	providerCfg, ok := config.Cfg.Providers[shadowProvider]
 	if !ok {
-		logging.Logger.Warn("Shadow mode: target provider not configured", "provider", provider)
+		logging.Logger.Warn("Shadow mode: target provider not configured", "provider", shadowProvider)
 		return
 	}
 
-	shadowBody := replaceModel(body, model)
+	shadowBody := replaceModel(body, shadowModel)
 
 	baseURL := strings.TrimSuffix(providerCfg.BaseURL, "/")
 
@@ -614,7 +663,7 @@ func fireShadowRequest(body []byte, provider string, model string) {
 	if hostname == "localhost" || hostname == "127.0.0.1" || hostname == "::1" ||
 		strings.HasPrefix(hostname, "10.") || strings.HasPrefix(hostname, "192.168.") || strings.HasPrefix(hostname, "169.254.") {
 		// Allow localhost only for ollama provider
-		if provider != "ollama" {
+		if shadowProvider != "ollama" {
 			logging.Logger.Error("Shadow mode: refusing to send requests to internal network", "host", hostname)
 			return
 		}
@@ -629,7 +678,7 @@ func fireShadowRequest(body []byte, provider string, model string) {
 	}
 
 	shadowReq.Header.Set("Content-Type", "application/json")
-	if provider == "anthropic" {
+	if shadowProvider == "anthropic" {
 		shadowReq.Header.Set("x-api-key", providerCfg.APIKey)
 		shadowReq.Header.Set("anthropic-version", "2023-06-01")
 	} else {
@@ -642,14 +691,37 @@ func fireShadowRequest(body []byte, provider string, model string) {
 	latency := time.Since(start)
 
 	if err != nil {
-		logging.Logger.Warn("Shadow mode: request failed", "provider", provider, "error", err)
+		logging.Logger.Warn("Shadow mode: request failed", "provider", shadowProvider, "error", err)
 		return
 	}
-	defer shadowRes.Body.Close()
+	bodyBytes, _ := io.ReadAll(shadowRes.Body)
+
+	var shadowText string
+	var respData map[string]interface{}
+	if err := json.Unmarshal(bodyBytes, &respData); err == nil {
+		if choices, ok := respData["choices"].([]interface{}); ok && len(choices) > 0 {
+			if choice, ok := choices[0].(map[string]interface{}); ok {
+				if msg, ok := choice["message"].(map[string]interface{}); ok {
+					shadowText, _ = msg["content"].(string)
+				}
+			}
+		}
+	}
+
+	if telemetry.GlobalDiffBroadcaster != nil && shadowText != "" {
+		telemetry.GlobalDiffBroadcaster.Broadcast(telemetry.DiffEvent{
+			PrimaryProvider: primaryProvider,
+			PrimaryModel:    extractModel(body),
+			PrimaryText:     "(Check primary stream for live text)",
+			ShadowProvider:  shadowProvider,
+			ShadowModel:     shadowModel,
+			ShadowText:      shadowText,
+		})
+	}
 
 	logging.Logger.Info("Shadow mode: mirror complete",
-		"provider", provider,
-		"model", model,
+		"provider", shadowProvider,
+		"model", shadowModel,
 		"status", shadowRes.StatusCode,
 		"latency_ms", latency.Milliseconds())
 }

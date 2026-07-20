@@ -31,3 +31,17 @@ To prevent malicious nodes from abusing donated keys (e.g., getting them rate-li
 4. **The Premium Gate**: If a node's trust score drops to `UNTRUSTED` (below 10/100) or they are still in the `NEW` tier, the DRR automatically isolates them. They are physically blocked from drawing enterprise-grade "Premium" keys (>10M TPM) from the pool until they rebuild their reputation. 
 
 This guarantees the "Tragedy of the Commons" is solved: bad actors cannot drain or pollute the high-value keys in the mesh.
+
+## Cross-Node Prompt Routing & E2EE (v2.5.0)
+
+With version 2.5.0, Tkngate extends the mesh from simple key-sharing to full **Cross-Node Prompt Routing**.
+1. **End-to-End Encryption**: Prompts forwarded through the mesh are encrypted using `AES-256-GCM`. The intermediary nodes cannot read the contents of the prompts they route.
+2. **Latency-Based Routing**: The engine actively monitors ping times and historic latency to peer nodes, dynamically routing your prompt to the healthiest, lowest-latency peer that has capacity.
+3. **Automatic Retries**: If a peer node goes offline or times out mid-request, the proxy instantly reroutes the prompt to the next available peer without dropping the client connection.
+
+## Fleet Orchestration & mDNS (v2.6.0)
+
+When deploying multiple Tkngate daemon replicas in a local network, they automatically discover each other using **mDNS** and form a synchronized cluster:
+1. **Leader Election**: The nodes use a strict leader election protocol (Raft-inspired). Only the leader handles writing critical reputation slashing events and budget ledger deductions.
+2. **Shared State**: Follower nodes continuously sync the global `AuditLog`, `Sessions`, and `Reputations` state via the leader's broadcast channel, ensuring your dashboard shows a unified view of the entire cluster.
+3. **Health Checks**: The cluster automatically prunes dead or unresponsive nodes from the mesh pool.

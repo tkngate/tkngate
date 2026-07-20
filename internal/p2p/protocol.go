@@ -308,9 +308,15 @@ func OffloadRequest(ctx context.Context, provider string, model string, sessionI
 		return nil, fmt.Errorf("no peers connected")
 	}
 
-	// Find all trusted peers
+	// Find all trusted peers that support our PingProtocol
 	var trustedPeers []peer.ID
 	for _, p := range peers {
+		// Only try to offload to peers that explicitly support our protocol
+		supports, err := GlobalHost.Peerstore().SupportsProtocols(p, PingProtocol)
+		if err != nil || len(supports) == 0 {
+			continue
+		}
+
 		if mesh.GlobalReputation != nil {
 			tier := mesh.GlobalReputation.GetTier(p.String())
 			if tier != mesh.TierUntrusted && !mesh.GlobalReputation.IsBlacklisted(p.String()) {
@@ -400,12 +406,12 @@ func OffloadRequest(ctx context.Context, provider string, model string, sessionI
 		logging.Logger.Info("Offloading prompt to P2P peer", "peer", selectedPeer.String(), "latency", peerRes.latency, "provider", provider)
 		resp, err := SendRouteRequest(ctx, selectedPeer, req)
 		if err != nil {
-			logging.Logger.Warn("P2P offload failed, retrying next peer", "failed_peer", selectedPeer.String(), "error", err)
+			logging.Logger.Debug("P2P offload failed, retrying next peer", "failed_peer", selectedPeer.String(), "error", err)
 			lastErr = err
 			continue
 		}
 		if !resp.Success {
-			logging.Logger.Warn("P2P offload peer returned error, retrying next peer", "failed_peer", selectedPeer.String(), "error", resp.ErrorMessage)
+			logging.Logger.Debug("P2P offload peer returned error, retrying next peer", "failed_peer", selectedPeer.String(), "error", resp.ErrorMessage)
 			lastErr = fmt.Errorf("peer error: %s", resp.ErrorMessage)
 			continue
 		}

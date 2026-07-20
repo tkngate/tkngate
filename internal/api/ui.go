@@ -2,5 +2,5 @@ package api
 
 import "embed"
 
-//go:embed ui/dist/*
+//go:embed all:ui/dist
 var DashboardFS embed.FS

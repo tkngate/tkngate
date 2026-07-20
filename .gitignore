@@ -1,16 +1,15 @@
 # Binaries
 tkngate.exe
 tkngate
-
 /tkngate.exe*
 /tkngate
-tkngate.exe*
-tkngate*
+tkngate-*.exe
+*.exe~
+check_embed.go
 
 # Config with secrets
 tkngate.yaml
 .env
-.env.example
 .env*
 .env.local
 
@@ -33,5 +32,12 @@ tkngate.yaml
 .DS_Store
 Thumbs.db
 
+# Test/demo scripts (not part of the release)
+blast_deepseek.py
+burn_tokens.py
+demo_deepseek.py
+demo_traffic.py
+
+# Internal notes
 Newproject.md
 roadmap.md
