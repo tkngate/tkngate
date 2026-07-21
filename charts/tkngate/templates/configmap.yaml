@@ -1,0 +1,61 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "tkngate.fullname" . }}-config
+  labels:
+    {{- include "tkngate.labels" . | nindent 4 }}
+data:
+  tkngate.yaml: |
+    server:
+      port: {{ .Values.config.server.port }}
+      host: {{ .Values.config.server.host | quote }}
+
+    providers:
+      openai:
+        api_key: {{ .Values.config.providers.openai.api_key | quote }}
+        base_url: {{ .Values.config.providers.openai.base_url | quote }}
+        default_model: {{ .Values.config.providers.openai.default_model | quote }}
+      anthropic:
+        api_key: {{ .Values.config.providers.anthropic.api_key | quote }}
+        base_url: {{ .Values.config.providers.anthropic.base_url | quote }}
+        default_model: {{ .Values.config.providers.anthropic.default_model | quote }}
+
+    budget:
+      global_limit_usd: {{ .Values.config.budget.global_limit_usd }}
+      max_session_cost_usd: {{ .Values.config.budget.max_session_cost_usd }}
+      fallback_model: {{ .Values.config.budget.fallback_model | quote }}
+      fallback_provider: {{ .Values.config.budget.fallback_provider | quote }}
+      amber_threshold_pct: {{ .Values.config.budget.amber_threshold_pct }}
+      red_threshold_pct: {{ .Values.config.budget.red_threshold_pct }}
+      reset_interval: {{ .Values.config.budget.reset_interval | quote }}
+
+    compressor:
+      enabled: {{ .Values.config.compressor.enabled }}
+      soft_token_limit: {{ .Values.config.compressor.soft_token_limit }}
+      strategy: {{ .Values.config.compressor.strategy | quote }}
+
+    cache:
+      enabled: {{ .Values.config.cache.enabled }}
+      max_entries: {{ .Values.config.cache.max_entries }}
+      ttl_seconds: {{ .Values.config.cache.ttl_seconds }}
+
+    telemetry:
+      enabled: {{ .Values.config.telemetry.enabled }}
+      host: {{ .Values.config.telemetry.host | quote }}
+      port: {{ .Values.config.telemetry.port }}
+
+    rate_limit:
+      enabled: {{ .Values.config.rate_limit.enabled }}
+      requests_per_minute: {{ .Values.config.rate_limit.requests_per_minute }}
+      burst_size: {{ .Values.config.rate_limit.burst_size }}
+
+    waf:
+      enabled: {{ .Values.config.waf.enabled }}
+      blocklist:
+        {{- range .Values.config.waf.blocklist }}
+        - {{ . | quote }}
+        {{- end }}
+
+    audit:
+      enabled: {{ .Values.config.audit.enabled }}
+      format: {{ .Values.config.audit.format | quote }}
