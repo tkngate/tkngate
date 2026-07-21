@@ -1,8 +1,7 @@
 # Binaries
-tkngate.exe
-tkngate
-/tkngate.exe*
 /tkngate
+/tkngate.exe
+/tkngate.exe*
 tkngate-*.exe
 *.exe~
 check_embed.go
