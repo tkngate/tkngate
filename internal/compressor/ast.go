@@ -10,7 +10,16 @@ import (
 )
 
 // Compress evaluates the content and structurally reduces it based on its language.
+//
+// v2.7.0: JSON payloads (tool-call arguments, structured output schemas) are
+// explicitly excluded from compression to prevent corruption.
 func Compress(content string) string {
+	// v2.7.0: Never compress raw JSON — tool_calls arguments and
+	// response_format schemas must pass through untouched.
+	if isJSON(content) {
+		return content
+	}
+
 	if isGoCode(content) {
 		return compressGo(content)
 	} else if isPythonCode(content) {
@@ -21,6 +30,18 @@ func Compress(content string) string {
 
 	// Fallback: return unchanged
 	return content
+}
+
+// isJSON returns true if the content looks like a raw JSON object or array.
+// This prevents the compressor from mutating structured outputs and tool-call
+// argument strings that must remain valid JSON.
+func isJSON(content string) bool {
+	trimmed := strings.TrimSpace(content)
+	if len(trimmed) < 2 {
+		return false
+	}
+	return (trimmed[0] == '{' && trimmed[len(trimmed)-1] == '}') ||
+		(trimmed[0] == '[' && trimmed[len(trimmed)-1] == ']')
 }
 
 func isGoCode(content string) bool {

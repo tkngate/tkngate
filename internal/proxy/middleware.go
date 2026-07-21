@@ -802,33 +802,132 @@ func compressPayload(payload []byte) []byte {
 	return payload
 }
 
+// canonicalizePayload produces a deterministic, tool-call-aware representation
+// of the request payload for semantic cache keying.
+//
+// v2.7.0 — Native Tool-Calling Support:
+//   - Scrubs random `tool_call_id` / `id` fields from messages so that
+//     identical agent conversation trees with different randomly generated
+//     IDs produce the same cache hash.
+//   - Sorts the `tools` array alphabetically by `function.name` so that
+//     clients sending the same tool set in a different order still hit cache.
+//   - Preserves `response_format` for Structured Outputs cache keying.
 func canonicalizePayload(payload []byte) []byte {
 	var data map[string]interface{}
 	if err := json.Unmarshal(payload, &data); err != nil {
 		return payload
 	}
-	
+
 	canonical := make(map[string]interface{})
 	if model, ok := data["model"]; ok {
 		canonical["model"] = model
 	}
-	if messages, ok := data["messages"]; ok {
+
+	// Canonicalize messages: strip random tool_call_id fields
+	if messages, ok := data["messages"].([]interface{}); ok {
+		canonical["messages"] = scrubToolCallIDs(messages)
+	} else if messages, ok := data["messages"]; ok {
 		canonical["messages"] = messages
 	}
-	if tools, ok := data["tools"]; ok {
+
+	// Sort tools array deterministically by function.name
+	if tools, ok := data["tools"].([]interface{}); ok {
+		canonical["tools"] = sortToolsByName(tools)
+	} else if tools, ok := data["tools"]; ok {
 		canonical["tools"] = tools
 	}
+
 	if toolChoice, ok := data["tool_choice"]; ok {
 		canonical["tool_choice"] = toolChoice
 	}
 	if responseFormat, ok := data["response_format"]; ok {
 		canonical["response_format"] = responseFormat
 	}
-	
+
 	if newPayload, err := json.Marshal(canonical); err == nil {
 		return newPayload
 	}
 	return payload
+}
+
+// scrubToolCallIDs removes randomly generated `tool_call_id` and `id` fields
+// from tool-call messages so that identical conversational trees always
+// produce the same cache hash regardless of the LLM's random ID generation.
+func scrubToolCallIDs(messages []interface{}) []interface{} {
+	cleaned := make([]interface{}, len(messages))
+	for i, msg := range messages {
+		msgMap, ok := msg.(map[string]interface{})
+		if !ok {
+			cleaned[i] = msg
+			continue
+		}
+
+		// Deep-copy the message map so we don't mutate the original payload
+		scrubbed := make(map[string]interface{})
+		for k, v := range msgMap {
+			scrubbed[k] = v
+		}
+
+		// Strip `tool_call_id` from role:"tool" messages
+		delete(scrubbed, "tool_call_id")
+
+		// Strip `id` from each item inside `tool_calls` arrays (role:"assistant")
+		if toolCalls, ok := scrubbed["tool_calls"].([]interface{}); ok {
+			cleanedCalls := make([]interface{}, len(toolCalls))
+			for j, tc := range toolCalls {
+				tcMap, ok := tc.(map[string]interface{})
+				if !ok {
+					cleanedCalls[j] = tc
+					continue
+				}
+				tcCopy := make(map[string]interface{})
+				for k, v := range tcMap {
+					tcCopy[k] = v
+				}
+				delete(tcCopy, "id")
+				cleanedCalls[j] = tcCopy
+			}
+			scrubbed["tool_calls"] = cleanedCalls
+		}
+
+		cleaned[i] = scrubbed
+	}
+	return cleaned
+}
+
+// sortToolsByName sorts a tools array alphabetically by each tool's
+// function.name field.  This ensures that clients sending the same set of
+// tools in a different order still produce the same cache key.
+func sortToolsByName(tools []interface{}) []interface{} {
+	sorted := make([]interface{}, len(tools))
+	copy(sorted, tools)
+
+	// Simple insertion sort — tool arrays are typically < 20 items
+	for i := 1; i < len(sorted); i++ {
+		key := sorted[i]
+		keyName := extractToolFunctionName(key)
+		j := i - 1
+		for j >= 0 && extractToolFunctionName(sorted[j]) > keyName {
+			sorted[j+1] = sorted[j]
+			j--
+		}
+		sorted[j+1] = key
+	}
+	return sorted
+}
+
+// extractToolFunctionName extracts the function.name from an OpenAI tool object.
+func extractToolFunctionName(tool interface{}) string {
+	toolMap, ok := tool.(map[string]interface{})
+	if !ok {
+		return ""
+	}
+	fn, ok := toolMap["function"].(map[string]interface{})
+	if !ok {
+		return ""
+	}
+	name, _ := fn["name"].(string)
+	return name
 }
 
 func extractPromptString(payload []byte) string {
