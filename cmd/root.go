@@ -11,10 +11,10 @@ import (
 
 var rootCmd = &cobra.Command{
 	Use:     "tkngate",
-	Version: "v2.6.0",
-	Short:   "tkngate is an enterprise token-management reverse proxy",
-	Long: `tkngate is a zero-knowledge reverse proxy daemon for LLM APIs.
-It provides P2P token pooling, real-time budget enforcement, and semantic caching.`,
+	Version: "v2.8.0",
+	Short:   "TknGate is a Zero-Trust Kubernetes Sidecar for AI Agent Credentials",
+	Long: `TknGate is an enterprise sidecar for LLM APIs.
+It provides zero-trust credential isolation, budget enforcement, and semantic caching in your private VPC.`,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -108,8 +108,8 @@ func init() {
 
 		// ── Info box ──
 		fmt.Println(Gold("┌────────────────────────────────────────────────────────┐"))
-		fmt.Println(Gold("│") + "  The open-source API gateway for AI agents             " + Gold("│"))
-		fmt.Println(Gold("│") + "  " + Parch("Enterprise zero-knowledge reverse proxy for LLM APIs") + "  " + Gold("│"))
+		fmt.Println(Gold("│") + "  The Zero-Trust Sidecar for Enterprise AI Agents       " + Gold("│"))
+		fmt.Println(Gold("│") + "  " + Parch("Isolates API credentials inside your private VPC") + "      " + Gold("│"))
 		fmt.Println(Gold("└────────────────────────────────────────────────────────┘"))
 		fmt.Println()
 

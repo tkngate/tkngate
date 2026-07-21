@@ -1,8 +1,8 @@
-# How tkngate Works
+# How TknGate Works
 
-`tkngate` is a high-performance Layer-7 reverse proxy written in Go. Instead of your applications sending HTTP requests directly to OpenAI or Anthropic, they send requests to `tkngate` running locally on your machine or server.
+`tkngate` is a high-performance Layer-7 reverse proxy written in Go, designed to run as a **Kubernetes sidecar** or standalone daemon inside your private VPC. Instead of your applications sending HTTP requests directly to OpenAI or Anthropic using raw API keys, they send requests to the `tkngate` sidecar.
 
-`tkngate` intercepts the request, runs a gauntlet of smart middleware, and then forwards it to the upstream LLM provider.
+`tkngate` isolates the credentials, runs a gauntlet of smart middleware (WAF, Budgeting, Caching), and then forwards the request to the upstream LLM provider.
 
 ## The Architecture Pipeline
 
