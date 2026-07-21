@@ -31,3 +31,22 @@ func DoSomethingComplex() {
 		t.Errorf("Compressor stripped the function signature: %s", output)
 	}
 }
+
+func TestCompress_JSON(t *testing.T) {
+	input := `{
+  "tool_calls": [
+    {
+      "id": "call_123",
+      "type": "function",
+      "function": {
+        "name": "get_weather",
+        "arguments": "{\"location\":\"San Francisco\"}"
+      }
+    }
+  ]
+}`
+	output := Compress(input)
+	if output != input {
+		t.Errorf("Compressor modified JSON payload. Expected %q, got %q", input, output)
+	}
+}
