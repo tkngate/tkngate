@@ -1,0 +1,7 @@
+.env
+.git
+.github
+budget.db
+*.exe
+*.exe~
+ui/node_modules
