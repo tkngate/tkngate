@@ -6,7 +6,7 @@ description: >
   LLM provider credentials in-memory inside your private VPC.
 type: application
 version: 0.1.2
-appVersion: "v2.8.0"
+appVersion: "v2.8.1"
 keywords:
   - ai
   - llm

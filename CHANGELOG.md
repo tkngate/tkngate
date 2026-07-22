@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.8.1] - Kubernetes Observability Expansion
+
+### Added
+- **OpenTelemetry Tracing**: Tkngate now emits W3C trace context spans for all incoming proxy requests and outgoing LLM provider API calls.
+- **Config Hot-Reloading**: Added `viper.WatchConfig()` support to dynamically reload WAF rules and budgets without pod restarts when Kubernetes ConfigMaps are updated.
+- **Prometheus ServiceMonitor**: The Helm chart now natively supports Prometheus Operator scraping out-of-the-box.
+
 ## [v2.8.0] - The Zero-Trust Kubernetes Sidecar
 
 ### Added

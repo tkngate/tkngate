@@ -11,8 +11,8 @@ import (
 
 var rootCmd = &cobra.Command{
 	Use:     "tkngate",
-	Version: "v2.8.0",
 	Short:   "TknGate is a Zero-Trust Kubernetes Sidecar for AI Agent Credentials",
+	Version: "v2.8.1",
 	Long: `TknGate is an enterprise sidecar for LLM APIs.
 It provides zero-trust credential isolation, budget enforcement, and semantic caching in your private VPC.`,
 }
