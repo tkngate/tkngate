@@ -102,3 +102,18 @@ config:
 # -- Use an existing Kubernetes Secret for API keys instead of plaintext values.
 # The secret should contain keys like `openai-api-key`, `anthropic-api-key`.
 existingSecret: ""
+
+# -- OpenTelemetry integration
+opentelemetry:
+  enabled: false
+  exporter_type: "http"
+  endpoint: "localhost:4318"
+  service_name: "tkngate"
+
+# -- Prometheus Operator ServiceMonitor
+serviceMonitor:
+  enabled: false
+  interval: 30s
+  scrapeTimeout: 10s
+  labels: {}
+
