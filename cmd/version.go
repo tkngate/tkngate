@@ -9,13 +9,14 @@ import (
 
 // These variables are injected at build time using -ldflags
 var (
-	Version   = "v2.1.0"
-	BuildDate = "2026-07-10"
+	// Version is the current version of tkngate
+	Version   = "v2.8.1"
+	BuildDate = "2026-07-21"
 )
 
 var versionCmd = &cobra.Command{
 	Use:   "version",
-	Short: "Print the version number of Tkngate",
+	Short: "Print the version number of TknGate",
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println()
 		pterm.DefaultHeader.WithFullWidth().WithBackgroundStyle(pterm.NewStyle(pterm.BgYellow)).WithTextStyle(pterm.NewStyle(pterm.FgBlack)).Println("TKNGATE ENTERPRISE")

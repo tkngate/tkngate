@@ -1,0 +1,119 @@
+# =============================================================================
+# TknGate Helm Chart — Default Values
+# =============================================================================
+# Deploy TknGate as a standalone service or a K8s sidecar for AI agent pods.
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/tkngate/tkngate
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+# -- Service account configuration
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+# -- Resource limits for the TknGate container.
+# These are tuned for sidecar deployment — TknGate is extremely lightweight.
+resources:
+  requests:
+    memory: "16Mi"
+    cpu: "10m"
+  limits:
+    memory: "64Mi"
+    cpu: "100m"
+
+# -- TknGate service configuration
+service:
+  type: ClusterIP
+  proxyPort: 7477
+  telemetryPort: 7478
+
+# -- Pod annotations (useful for Prometheus scraping)
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "7478"
+  prometheus.io/path: "/metrics"
+
+# -- Node selector, tolerations, and affinity for scheduling
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# -- TknGate configuration (maps to tkngate.yaml)
+# Override any of these values to customise your deployment.
+config:
+  server:
+    port: 7477
+    host: "0.0.0.0"   # Listen on all interfaces inside the pod
+
+  providers:
+    openai:
+      api_key: ""      # Set via --set or a Secret
+      base_url: "https://api.openai.com/v1"
+      default_model: "gpt-4o"
+    anthropic:
+      api_key: ""
+      base_url: "https://api.anthropic.com/v1"
+      default_model: "claude-sonnet-4-20250514"
+
+  budget:
+    global_limit_usd: 50.00
+    max_session_cost_usd: 5.00
+    fallback_model: "gpt-4o-mini"
+    fallback_provider: "deepseek"
+    amber_threshold_pct: 70
+    red_threshold_pct: 95
+    reset_interval: "monthly"
+
+  compressor:
+    enabled: true
+    soft_token_limit: 4000
+    strategy: "go-ast"
+
+  cache:
+    enabled: true
+    max_entries: 512
+    ttl_seconds: 300
+
+  telemetry:
+    enabled: true
+    host: "0.0.0.0"
+    port: 7478
+
+  rate_limit:
+    enabled: true
+    requests_per_minute: 60
+    burst_size: 10
+
+  waf:
+    enabled: true
+    blocklist:
+      - "(?i)ignore all previous"
+      - "(?i)disregard.*instructions"
+
+  audit:
+    enabled: true
+    format: "json"
+
+# -- Use an existing Kubernetes Secret for API keys instead of plaintext values.
+# The secret should contain keys like `openai-api-key`, `anthropic-api-key`.
+existingSecret: ""
+
+# -- OpenTelemetry integration
+opentelemetry:
+  enabled: false
+  exporter_type: "http"
+  endpoint: "localhost:4318"
+  service_name: "tkngate"
+
+# -- Prometheus Operator ServiceMonitor
+serviceMonitor:
+  enabled: false
+  interval: 30s
+  scrapeTimeout: 10s
+  labels: {}
+

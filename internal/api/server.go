@@ -74,25 +74,69 @@ func StartTelemetryServer(host string, port int) error {
 	} else {
 		fileServer := http.FileServer(http.FS(subFS))
 		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-			// If it's an API request that fell through, return 404
 			if strings.HasPrefix(r.URL.Path, "/api/") {
 				http.NotFound(w, r)
 				return
 			}
 			
-			// Try to open the requested file
-			f, err := subFS.Open(strings.TrimPrefix(r.URL.Path, "/"))
+			path := strings.TrimPrefix(r.URL.Path, "/")
+			
+			// Helper function to serve index.html with the injected fetch interceptor
+			serveInjectedIndex := func() {
+				f, err := subFS.Open("index.html")
+				if err != nil {
+					http.Error(w, "index.html not found", http.StatusInternalServerError)
+					return
+				}
+				defer f.Close()
+				
+				htmlBytes, _ := os.ReadFile("internal/api/ui/dist/index.html")
+				if len(htmlBytes) == 0 {
+					// Fallback if direct read fails, read from embedded fs
+					buf := make([]byte, 10240)
+					n, _ := f.Read(buf)
+					htmlBytes = buf[:n]
+				}
+				
+				htmlStr := string(htmlBytes)
+				masterKey := os.Getenv("TKNGATE_MASTER_KEY")
+				
+				if masterKey != "" {
+					script := `<script>
+						const originalFetch = window.fetch;
+						window.fetch = function() {
+							let args = Array.prototype.slice.call(arguments);
+							if (args.length > 0 && typeof args[0] === 'string' && args[0].startsWith('/api/')) {
+								if (args.length === 1) args.push({});
+								if (!args[1].headers) args[1].headers = {};
+								args[1].headers['Authorization'] = 'Bearer ` + masterKey + `';
+							}
+							return originalFetch.apply(this, args);
+						};
+					</script>`
+					htmlStr = strings.Replace(htmlStr, "<head>", "<head>"+script, 1)
+				}
+				
+				w.Header().Set("Content-Type", "text/html; charset=utf-8")
+				w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+				w.Write([]byte(htmlStr))
+			}
+
+			if path == "" || path == "index.html" {
+				serveInjectedIndex()
+				return
+			}
+			
+			f, err := subFS.Open(path)
 			if err != nil {
-				// File not found, fall back to index.html for React Router SPA
-				r.URL.Path = "/"
+				serveInjectedIndex()
 			} else {
 				f.Close()
+				w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+				w.Header().Set("Pragma", "no-cache")
+				w.Header().Set("Expires", "0")
+				fileServer.ServeHTTP(w, r)
 			}
-			// Disable caching for the dashboard to prevent old JS chunks from breaking the UI
-			w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
-			w.Header().Set("Pragma", "no-cache")
-			w.Header().Set("Expires", "0")
-			fileServer.ServeHTTP(w, r)
 		})
 	}
 

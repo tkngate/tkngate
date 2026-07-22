@@ -1,8 +1,8 @@
-# How tkngate Works
+# How TknGate Works
 
-`tkngate` is a high-performance Layer-7 reverse proxy written in Go. Instead of your applications sending HTTP requests directly to OpenAI or Anthropic, they send requests to `tkngate` running locally on your machine or server.
+`tkngate` is a high-performance Layer-7 reverse proxy written in Go, designed to run as a **Kubernetes sidecar** or standalone daemon inside your private VPC. Instead of your applications sending HTTP requests directly to OpenAI or Anthropic using raw API keys, they send requests to the `tkngate` sidecar.
 
-`tkngate` intercepts the request, runs a gauntlet of smart middleware, and then forwards it to the upstream LLM provider.
+`tkngate` isolates the credentials, runs a gauntlet of smart middleware (WAF, Budgeting, Caching), and then forwards the request to the upstream LLM provider.
 
 ## The Architecture Pipeline
 
@@ -20,8 +20,8 @@ The proxy looks for the `X-Tkngate-Session-ID` HTTP header. This header identifi
 ### 3. The Context Compressor Engine
 If the request is allowed through, `tkngate` estimates the token count of the prompt payload using the `tiktoken` library.
 - If the token count exceeds the `soft_token_limit`, the compressor activates.
-- It parses the prompt looking for raw code (e.g., Go source code).
-- It structurally strips out non-functional comments and zeroes out deep function bodies using an Abstract Syntax Tree (AST).
+- It parses the prompt looking for raw code (e.g., Go or Python source code).
+- It structurally strips out non-functional comments, docstrings, and zeroes out deep function bodies using native Abstract Syntax Trees (AST).
 - It reserializes a heavily optimized, much smaller JSON payload.
 
 ### 4. The Deficit Round Robin (DRR) Router

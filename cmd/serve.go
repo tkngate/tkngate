@@ -24,6 +24,7 @@ import (
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 var demoMode bool
@@ -179,6 +180,17 @@ var serveCmd = &cobra.Command{
 			pterm.Success.Printf("Telemetry API active on port %d\n", config.Cfg.Telemetry.Port)
 		}
 
+		if err := telemetry.InitOTEL(context.Background()); err != nil {
+			logging.Logger.Error("failed to init OpenTelemetry", "error", err)
+		} else if config.Cfg.OTEL.Enabled {
+			pterm.Success.Println("OpenTelemetry Tracing active")
+			defer func() {
+				if telemetry.TracerProvider != nil {
+					telemetry.TracerProvider.Shutdown(context.Background())
+				}
+			}()
+		}
+
 		spinner, _ = pterm.DefaultSpinner.Start("Starting proxy server...")
 		p, err := proxy.NewProxy()
 		if err != nil {
@@ -205,9 +217,14 @@ var serveCmd = &cobra.Command{
 
 		logging.Logger.Info("proxy engine online", "address", addr)
 
+		var handler http.Handler = p
+		if config.Cfg.OTEL.Enabled {
+			handler = otelhttp.NewHandler(p, "tkngate-proxy")
+		}
+
 		server := &http.Server{
 			Addr:    addr,
-			Handler: p,
+			Handler: handler,
 		}
 
 		go func() {

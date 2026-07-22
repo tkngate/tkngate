@@ -5,7 +5,10 @@ import (
 	"net/http"
 	"net/http/httputil"
 
+	"tkngate/internal/config"
 	"tkngate/internal/tokenizer"
+
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 // NewProxy creates a new configured reverse proxy
@@ -15,8 +18,13 @@ func NewProxy() (*httputil.ReverseProxy, error) {
 		return nil, fmt.Errorf("failed to initialize token counter: %w", err)
 	}
 
+	var baseTransport http.RoundTripper = http.DefaultTransport
+	if config.Cfg.OTEL.Enabled {
+		baseTransport = otelhttp.NewTransport(http.DefaultTransport)
+	}
+
 	transport := &proxyTransport{
-		Transport: http.DefaultTransport,
+		Transport: baseTransport,
 		Counter:   counter,
 	}
 

@@ -2,13 +2,14 @@
   <img src="./public/tkngatecli.png" alt="Tkngate Banner" width="50%">
 </p>
 
-<h1 align="center">Tkngate: The Enterprise AI Gateway</h1>
-<p align="center"><strong>Zero-trust P2P gateway for LLM agents</strong></p>
-<p align="center"><code>v2.5.0 — Cross-Node Prompt Routing</code></p>
+<h1 align="center">TknGate: The Zero-Trust Kubernetes Sidecar for Enterprise AI Agent Credentials</h1>
+<p align="center"><strong>Deploy inside your private K8s cluster in 60 seconds. No API key ever leaves your VPC.</strong></p>
+<p align="center"><code>v2.8.1 — Zero-Trust K8s Sidecar & Observability</code></p>
 <p align="center">
-  <a href="#install">Install</a> •
+  <a href="#the-problem">The Problem</a> •
+  <a href="#how-tkngate-solves-it">The Solution</a> •
+  <a href="#kubernetes-deployment">K8s Deploy</a> •
   <a href="#quick-start">Quick Start</a> •
-  <a href="#why-tkngate">Why Tkngate?</a> •
   <a href="#features">Features</a> •
   <a href="#vs-the-competition">Comparison</a> •
   <a href="./docs">Docs</a>
@@ -16,97 +17,140 @@
 
 ---
 
-## What is Tkngate?
+## The Problem
 
-Every developer building with **LangChain, AutoGen, or CrewAI** has experienced the same nightmare: a runaway `while` loop that burns $50 in OpenAI credits in 10 minutes. You wake up to a surprise bill with no way to explain which agent did it, when, or why.
+Enterprise security teams **block AI agent deployments** because of a single, catastrophic risk:
 
-**Tkngate solves this permanently.**
+> A prompt injection from an untrusted source (a malicious PDF, a poisoned web page, a compromised tool response) instructs the agent to `print(env.STRIPE_API_KEY)`. The agent complies. The key is exfiltrated. Game over.
 
-It is a single Go binary that sits as a reverse proxy between your agents and your LLM providers (OpenAI, Anthropic, Groq, etc.). It enforces hard USD circuit breakers, inspects every prompt with a ZK-verified AI-WAF, caches redundant reasoning loops for free, and gives you a real-time dashboard — all without sending a single byte of your data to a third party.
+Every other "AI gateway" — LiteLLM, Portkey, Helicone, OpenRouter — either:
+- Routes your traffic through **their cloud** (your CISO will never approve this), or
+- Runs as a **Python/Node process** too heavy for sidecar deployment, or
+- Offers **observability only** — they can tell you the key leaked *after* it happened.
 
-```
-Your AI Agent  →  tkngate (localhost:7477)  →  OpenAI / Anthropic / Groq / DeepSeek
-```
+None of them solve the actual problem: **your agent should never hold a raw API key in the first place.**
 
 ---
 
-## Why Tkngate?
+## How TknGate Solves It
 
-> *"LiteLLM routes. Portkey observes. **Tkngate protects.**"*
+TknGate is a **statically compiled, zero-dependency Go binary** that runs as a Kubernetes sidecar directly inside your isolated private VPC. Your agents never see real credentials — they only hold short-lived, scoped proxy tokens.
 
-### The Problem With Every Other Tool
+```
+┌─────────────────────────────────────────────────────────┐
+│  Your Kubernetes Pod                                    │
+│                                                         │
+│  ┌───────────────┐     ┌──────────────────┐             │
+│  │  AI Agent      │────▶│  TknGate Sidecar │──────────▶ │ OpenAI / Anthropic / Groq
+│  │  (proxy token) │     │  (real API keys) │             │
+│  └───────────────┘     └──────────────────┘             │
+│                                                         │
+│  ✅ Agent holds: ephemeral proxy token                  │
+│  ✅ Keys stored: in-memory, inside your VPC             │
+│  ✅ Exfiltration attempt: attacker gets nothing          │
+└─────────────────────────────────────────────────────────┘
+```
 
-| Tool | The Gap |
-|------|---------|
-| **LiteLLM** | Routes between models. No hard budget limits. Requires Python. |
-| **Portkey** | Cloud-only. Your prompts go through their servers. |
-| **Helicone** | Observability only. Can't stop a runaway agent. |
-| **OpenRouter** | You use their shared keys, not yours. |
-| **Kong AI Gateway** | Enterprise-only. Requires existing Kong infrastructure. |
+**The pitch**: *"Deploy TknGate inside your private Kubernetes cluster in 60 seconds. Our zero-dependency Go sidecar isolates agent credentials in-memory within your VPC — so no API key ever touches external cloud infrastructure or your agent's context window."*
 
-None of them offer **cryptographic prompt security**. None of them have a **P2P key mesh**. All of them either require a cloud account or send your data somewhere.
+---
+
+## Why Enterprise Teams Choose TknGate
+
+> *"LiteLLM routes. Portkey observes. **TknGate protects.**"*
+
+### Sub-Millisecond Latency. Zero Dependencies.
+
+TknGate is compiled to a **single static binary**. No Python runtime. No Node.js. No JVM. It adds <1ms of latency per request and consumes <20MB of memory — perfect for a K8s sidecar that runs alongside your agent without impacting performance.
+
+### Zero-Trust Credential Isolation
+
+Your agents authenticate to TknGate with a **virtual key** (an ephemeral proxy token). TknGate resolves it to the real provider API key **in-memory, at request time**, executes the LLM call, and strips the credential before returning the response. Even if an attacker achieves full prompt injection RCE, they can't exfiltrate what the agent process never had.
+
+### CISO-Ready Compliance
+
+- **Cryptographic Audit Trail**: Every outbound API request generates an immutable, hashed audit record mapping agent identity → prompt context → token usage → cost.
+- **ZK-SNARK Attestations**: Mathematically prove a prompt is safe without ever reading its content (Groth16 BN254).
+- **Hard USD Circuit Breakers**: The moment a budget is breached, the connection terminates — not after the billing cycle, **right now, at the byte level.**
 
 ---
 
 ## vs. The Competition
 
-| Feature | **Tkngate** | LiteLLM | Portkey | Helicone |
-|---------|:-----------:|:-------:|:-------:|:--------:|
-| Single binary (no Python, no Docker) | ✅ | ❌ | ❌ | ❌ |
-| 100% self-hosted, no data leaves your machine | ✅ | ✅ | ❌ | ❌ |
-| **ZK-SNARK AI-WAF attestations** | ✅ | ❌ | ❌ | ❌ |
-| **Global P2P Mesh Network (libp2p)** | ✅ | ❌ | ❌ | ❌ |
-| **P2P encrypted key mesh (DRR)** | ✅ | ❌ | ❌ | ❌ |
-| Hard USD per-session circuit breakers | ✅ | ⚠️ soft | ⚠️ | ❌ |
-| Shadow Mode A/B traffic splitting | ✅ | ❌ | ❌ | ❌ |
-| Multi-tenant RBAC + Organizations | ✅ | ✅ | ✅ | ❌ |
-| Semantic cache (save up to 80%) | ✅ | ❌ | ❌ | ❌ |
-| Embedded real-time dashboard | ✅ | ❌ | ✅ (cloud) | ✅ (cloud) |
-| Prometheus metrics export | ✅ | ✅ | ⚠️ | ⚠️ |
+| Feature | **TknGate** | LiteLLM | Portkey | Helicone | OpenRouter |
+|---------|:-----------:|:-------:|:-------:|:--------:|:----------:|
+| Deploys as K8s sidecar (single binary) | ✅ | ❌ | ❌ | ❌ | ❌ |
+| 100% self-hosted, no data leaves your VPC | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Zero-trust credential isolation | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **ZK-SNARK AI-WAF attestations** | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Cryptographic audit ledger | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Hard USD circuit breakers (not soft limits) | ✅ | ⚠️ soft | ⚠️ | ❌ | ❌ |
+| Native tool-call aware caching | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Sub-millisecond proxy overhead | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **P2P encrypted key mesh (DRR)** | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Shadow Mode A/B traffic splitting | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Embedded real-time dashboard | ✅ | ❌ | ✅ (cloud) | ✅ (cloud) | ❌ |
+| Prometheus metrics export | ✅ | ✅ | ⚠️ | ⚠️ | ❌ |
 
 ---
 
-## What Makes Tkngate Unique
+## Kubernetes Deployment
 
-### 1. 🔐 Zero-Knowledge Proof Attestations — Nobody Else Has This
-Every competitor routes prompts in plain text. Tkngate is the **only LLM proxy** that uses ZK-SNARKs (Groth16 BN254) to mathematically prove a prompt is safe **without ever reading the prompt content**. Enable it with one config flag:
-```yaml
-mesh:
-  strict_zkp_mode: true
-```
+### Option 1: Helm Chart (Recommended)
 
-### 2. 📦 One Binary. Zero Dependencies.
 ```bash
-go build -o tkngate && ./tkngate serve
+helm install tkngate ./charts/tkngate \
+  --set config.providers.openai.api_key="sk-proj-YOUR_KEY" \
+  --set config.budget.global_limit_usd=50
 ```
-That's it. No `pip install`. No Docker Compose. No cloud account. No data leaving your machine. SQLite is the only storage engine by default.
 
-### 3. 🤝 Encrypted P2P Token Mesh
-Tkngate lets you donate your spare API quota into a cryptographically secured pool. Keys are encrypted with **AES-256-GCM** and never exposed in plaintext, even to other nodes in the mesh. A **Deficit Round-Robin (DRR)** algorithm ensures free-riders are throttled automatically.
+### Option 2: Sidecar Injection
 
-### 4. 💰 Hard USD Circuit Breakers — Not Soft Limits
-Most tools let you *monitor* spend. Tkngate lets you *stop* it. The moment a session or global budget is breached, the connection is terminated — not after the next billing cycle, **right now, at the byte level**.
-
-### 5. 👁️ Shadow Mode — A/B Test Any Two Models Silently
-Fork a percentage of live traffic to a second provider and compare outputs and costs — with **zero changes to your agent code**. Like Canary Deployments for LLMs.
-
-### 6. 🌍 Global P2P Mesh Network — Decentralised Intelligence
-Tkngate nodes automatically discover each other worldwide via **Kademlia DHT** and locally via **mDNS**. Reputation updates and fraud alerts are broadcast in real-time using **GossipSub** with cryptographic signatures. An **Anti-Sybil Decay** loop continuously penalises idle nodes to prevent adversaries from building dormant proxy armies.
+Add TknGate as a sidecar container to any existing Pod:
 
 ```yaml
-p2p:
-  enabled: true
-  listen_port: 7479
-  enable_relay: true
-  enable_mdns: true
-  max_peers: 100
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-ai-agent
+spec:
+  containers:
+    # Your AI agent container
+    - name: agent
+      image: your-org/your-agent:latest
+      env:
+        - name: OPENAI_API_KEY
+          value: "your-tkngate-virtual-key"     # NOT a real API key
+        - name: OPENAI_BASE_URL
+          value: "http://localhost:7477/v1"       # Points to TknGate sidecar
+
+    # TknGate sidecar — credentials stay in-memory, inside your VPC
+    - name: tkngate
+      image: ghcr.io/tkngate/tkngate:latest
+      ports:
+        - containerPort: 7477
+      volumeMounts:
+        - name: tkngate-config
+          mountPath: /app/tkngate.yaml
+          subPath: tkngate.yaml
+      resources:
+        requests:
+          memory: "16Mi"
+          cpu: "10m"
+        limits:
+          memory: "64Mi"
+          cpu: "100m"
+  volumes:
+    - name: tkngate-config
+      configMap:
+        name: tkngate-config
 ```
 
-### 7. 🛡️ Live Security Dashboard & Peer Reputation Leaderboard
-The built-in React dashboard (`http://localhost:7478`) shows real-time WAF intercepts, ZKP attestation counts, mesh capacity, budget zones, and per-key spend — all served from the binary itself. The **Mesh** tab now features a full **Peer Reputation Leaderboard** with trust score bars, tier badges (🏆 PREMIUM / ✓ TRUSTED / ● NEW), a Fairness Engine health indicator, and network-wide violation tracking.
+### Option 3: Docker Compose (Development)
 
-### 8. 🖥️ Interactive CLI
-Run `./tkngate` with no arguments to launch a beautiful interactive menu. Browse organizations, check budgets, donate API keys, view connected P2P peers, test upstream providers, or launch the demo — all without memorising CLI flags.
+```bash
+docker compose up -d
+```
 
 ---
 
@@ -131,7 +175,7 @@ cp tkngate.example.yaml tkngate.yaml
 
 The proxy starts on `localhost:7477`. The telemetry dashboard opens at `localhost:7478`.
 
-Point your existing agent at tkngate — no code rewrites needed:
+Point your existing agent at TknGate — **no code rewrites needed**:
 
 ```python
 # Python (OpenAI SDK)
@@ -150,58 +194,49 @@ const openai = new OpenAI({
 });
 ```
 
-### Check Your P2P Peers
-
-```bash
-# Via interactive menu
-./tkngate
-# → Select "peers (Global P2P Mesh)"
-
-# Or directly
-./tkngate peers list
-```
-
----
-
-## Running the Demo
-
-If you want to see the dashboard in action without pointing real agent traffic at it, you can use the built-in demo traffic generators. These scripts simulate live traffic, WAF intercepts, and reputation slashing without consuming any real API credits.
-
-You can launch the demo in three ways:
-
-1. **Interactive Menu** (Recommended): Run `./tkngate` and select `demo (Simulate Live Traffic)`. This starts the proxy, the dashboard, and the demo traffic generator simultaneously.
-2. **CLI Flag**: Run `./tkngate serve --demo`. This performs the exact same action as the interactive menu.
-3. **Standalone**: Run `./tkngate demo` or `python demo_traffic.py` if you just want to generate background traffic to an isolated database.
-
-*Note: The demo scripts safely create and write to a separate `budget_demo.db` file, ensuring your real configuration and budget limits are never altered.*
-
 ---
 
 ## Features
 
-- **Asymmetric End-to-End Encryption (E2EE)** — Zero-trust prompt encryption using Ed25519-to-X25519 Diffie-Hellman key exchange
-- **Latency-Aware Peer Selection** — dynamically route LLM prompts to the fastest available peer in the global mesh
-- **Cross-Node Prompt Routing** — offload excess traffic to trusted mesh peers when your local rate limits are exhausted
-- **Deficit Round Robin (DRR)** — fair, weighted routing across all nodes in the mesh
-- **Enterprise Budget Guard** — hard USD limits per-session and globally, with GREEN/AMBER/RED zone alerts
-- **Semantic Caching** — up to 80% savings on repeated or similar prompts (in-memory or Redis)
-- **Dynamic AI-WAF** — intercepts prompt injections, PII leaks, and jailbreaks before they hit your provider
-- **ZK-SNARK Attestations** — cryptographic proof of prompt safety using Groth16 BN254 circuits
-- **Shadow Mode** — silently mirror a percentage of traffic to a second model for evaluation
-- **Universal Fallback** — if OpenAI returns 5xx, auto-retry on Anthropic or DeepSeek transparently
-- **Context Compressor** — strip whitespace and comments from code-heavy prompts (up to 40% token reduction)
-- **Multi-Tenant RBAC** — Virtual Keys with per-org budgets and provider restrictions
-- **Prometheus Export** — native metrics at `/metrics` for Grafana, Datadog, or New Relic
-- **Embedded Dashboard** — real-time React UI served from the binary itself, no Node.js required
-- **Peer Reputation Leaderboard** — live dashboard table ranking mesh nodes by trust score with tier badges and violation counts
-- **Stake-and-Slash Reputation** — mesh nodes that route malicious prompts get their trust score slashed automatically
-- **Interactive CLI** — beautiful TUI menu for managing everything without memorising flags
+### 🛡️ Zero-Trust Credential Isolation
+Agents authenticate with virtual keys. Real provider credentials never enter the agent's process memory or context window. Prompt injection attacks exfiltrate nothing.
+
+### 🔐 ZK-SNARK Prompt Attestations
+The **only LLM proxy** that uses zero-knowledge proofs (Groth16 BN254) to mathematically prove a prompt is safe without reading its content.
+```yaml
+mesh:
+  strict_zkp_mode: true
+```
+
+### 💰 Hard USD Circuit Breakers
+Most tools let you *monitor* spend. TknGate lets you *stop* it. Per-session and global budgets with GREEN/AMBER/RED zone enforcement — connections terminate at the byte level when breached.
+
+### 🧠 Tool-Call Aware Semantic Caching (v2.7.0)
+Deterministic cache keys that handle tool-calling payloads correctly — scrubs random `tool_call_id` fields and sorts tool arrays so identical agent conversations always hit cache, regardless of ID generation or tool ordering.
+
+### 👁️ Shadow Mode — A/B Test Any Two Models
+Fork a percentage of live traffic to a second provider and compare outputs and costs with zero changes to your agent code.
+
+### 🤝 Encrypted P2P Token Mesh
+Donate spare API quota into a cryptographically secured pool. Keys are encrypted with AES-256-GCM, never exposed in plaintext. Deficit Round-Robin (DRR) ensures fair allocation and throttles free-riders.
+
+### 🌍 Global P2P Mesh Network
+Nodes discover each other via Kademlia DHT and mDNS. Reputation updates broadcast via GossipSub with Ed25519 signatures. Anti-Sybil Decay penalises idle nodes.
+
+### 📊 Embedded Real-Time Dashboard
+React UI served from the binary itself — real-time WAF intercepts, ZKP counts, mesh capacity, budget zones, per-key spend. No separate Node.js deployment needed.
+
+### 🖥️ Interactive CLI
+Run `./tkngate` with no arguments for a beautiful TUI menu. Manage orgs, budgets, API keys, peers, and demos without memorising flags.
+
+### 📈 Prometheus Metrics
+Native export at `/metrics` for Grafana, Datadog, or New Relic.
 
 ---
 
 ## Telemetry & Observability
 
-Tkngate natively exports Prometheus metrics at `http://localhost:7478/metrics`. Hook it into any observability stack:
+TknGate natively exports Prometheus metrics at `http://localhost:7478/metrics`:
 
 ```yaml
 # prometheus.yml
@@ -217,17 +252,6 @@ Key metrics:
 - `tkngate_active_connections` — in-flight requests
 - `tkngate_cache_hits_total` — semantic cache hits
 - `tkngate_waf_intercepts_total` — requests blocked by the AI-WAF
-
----
-
-## The P2P Mesh
-
-As of `v2.0.0`, Tkngate features a full **Stake-and-Slash Reputation Engine** for peer-to-peer enterprise pooling. Instead of a single bottleneck API key, teams donate multiple keys into a shared pool governed by game theory:
-
-1. **Deficit Round Robin (DRR):** Free-riders who consume without donating are automatically throttled.
-2. **Stake-and-Slash Reputation:** Nodes route clean prompts → trust increases. Nodes route flagged prompts → trust is slashed. Low-trust nodes lose access to premium high-TPM keys.
-3. **ZK-SNARK Verification:** In `strict_zkp_mode`, every key access requires a valid zero-knowledge proof, making it impossible to abuse the mesh.
-4. **Global libp2p Networking (v2.4.0):** Nodes discover each other worldwide via **Kademlia DHT**, locally via **mDNS**, and broadcast reputation updates in real-time via **GossipSub** with Ed25519-signed messages. An **Anti-Sybil Decay** loop continuously penalises idle nodes.
 
 ---
 

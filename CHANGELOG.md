@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.8.1] - Kubernetes Observability Expansion
+
+### Added
+- **OpenTelemetry Tracing**: Tkngate now emits W3C trace context spans for all incoming proxy requests and outgoing LLM provider API calls.
+- **Config Hot-Reloading**: Added `viper.WatchConfig()` support to dynamically reload WAF rules and budgets without pod restarts when Kubernetes ConfigMaps are updated.
+- **Prometheus ServiceMonitor**: The Helm chart now natively supports Prometheus Operator scraping out-of-the-box.
+
+## [v2.8.0] - The Zero-Trust Kubernetes Sidecar
+
+### Added
+- **Enterprise Pivot**: Transitioned primary positioning to a Zero-Trust Kubernetes Sidecar for LLM Agents.
+- **Production Helm Chart**: Added `charts/tkngate` for seamless integration into enterprise Kubernetes infrastructure.
+- **Secure Dashboard Authentication**: Implemented a secure HTML injection interceptor so the local React telemetry dashboard authenticates effortlessly against the strict Zero-Trust API without needing a manual login screen.
+
+## [v2.7.0] - Python AST Context Compressor
+
+### Added
+- **AST Payload Pruning**: Added a Python-based AST compressor (`blast_deepseek.py`) that intelligently strips comments, docstrings, and truncates function bodies from Python source code payloads, saving massive token costs for LLM coding agents.
+- **Compressor Middleware**: Integrated an AST compressor pipeline into the proxy engine (`internal/compressor/python.go`) to automatically prune code tokens on the fly before they hit upstream LLM APIs.
+
+
 ## [v2.6.0] - Fleet Orchestration & Enterprise Readiness
 
 ### Added
