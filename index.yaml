@@ -1,0 +1,33 @@
+apiVersion: v1
+entries:
+  tkngate:
+  - apiVersion: v2
+    appVersion: v2.8.0
+    created: "2026-07-22T10:57:32.786142575Z"
+    description: 'The Zero-Trust Kubernetes Sidecar for Enterprise AI Agent Credentials.
+      Deploys TknGate as a standalone service or a sidecar container that isolates
+      LLM provider credentials in-memory inside your private VPC. '
+    digest: 36b2d1f8cc91c4f60b8f80ee93f167c2907de0a9bd180dfd8ab04f55c01724ee
+    home: https://github.com/tkngate/tkngate
+    keywords:
+    - ai
+    - llm
+    - kubernetes
+    - sidecar
+    - zero-trust
+    - security
+    - proxy
+    - openai
+    - anthropic
+    - enterprise
+    maintainers:
+    - email: eyob7ea@gmail.com
+      name: tkngate
+    name: tkngate
+    sources:
+    - https://github.com/tkngate/tkngate
+    type: application
+    urls:
+    - https://github.com/tkngate/tkngate/releases/download/tkngate-0.1.2/tkngate-0.1.2.tgz
+    version: 0.1.2
+generated: "2026-07-22T10:57:32.786149068Z"
