@@ -112,10 +112,8 @@ func StartTelemetryServer(host string, port int) error {
 func withAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		masterKey := os.Getenv("TKNGATE_MASTER_KEY")
-		isLocalhost := strings.HasPrefix(r.RemoteAddr, "127.0.0.1:") || strings.HasPrefix(r.RemoteAddr, "[::1]:")
-		
-		if masterKey == "" || (isLocalhost && r.Method == "GET") {
-			// If no master key is set, OR if it's a local GET request for the dashboard, allow access
+		if masterKey == "" {
+			// If no master key is set, allow access (dev mode / local-only)
 			next(w, r)
 			return
 		}
