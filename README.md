@@ -4,7 +4,7 @@
 
 <h1 align="center">TknGate: The Zero-Trust Kubernetes Sidecar for Enterprise AI Agent Credentials</h1>
 <p align="center"><strong>Deploy inside your private K8s cluster in 60 seconds. No API key ever leaves your VPC.</strong></p>
-<p align="center"><code>v2.8.0 — Zero-Trust K8s Sidecar & Helm Chart</code></p>
+<p align="center"><code>v2.8.1 — Zero-Trust K8s Sidecar & Observability</code></p>
 <p align="center">
   <a href="#the-problem">The Problem</a> •
   <a href="#how-tkngate-solves-it">The Solution</a> •

@@ -9,7 +9,8 @@ import (
 
 // These variables are injected at build time using -ldflags
 var (
-	Version   = "v2.8.0"
+	// Version is the current version of tkngate
+	Version   = "v2.8.1"
 	BuildDate = "2026-07-21"
 )
 

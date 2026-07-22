@@ -20,7 +20,7 @@ FROM alpine:3.21
 LABEL org.opencontainers.image.source="https://github.com/tkngate/tkngate"
 LABEL org.opencontainers.image.title="TknGate"
 LABEL org.opencontainers.image.description="Zero-Trust Kubernetes Sidecar for Enterprise AI Agent Credentials"
-LABEL org.opencontainers.image.version="2.8.0"
+LABEL org.opencontainers.image.version="2.8.1"
 LABEL io.tkngate.deployment-mode="sidecar"
 
 RUN apk add --no-cache ca-certificates tzdata
