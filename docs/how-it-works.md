@@ -20,8 +20,8 @@ The proxy looks for the `X-Tkngate-Session-ID` HTTP header. This header identifi
 ### 3. The Context Compressor Engine
 If the request is allowed through, `tkngate` estimates the token count of the prompt payload using the `tiktoken` library.
 - If the token count exceeds the `soft_token_limit`, the compressor activates.
-- It parses the prompt looking for raw code (e.g., Go source code).
-- It structurally strips out non-functional comments and zeroes out deep function bodies using an Abstract Syntax Tree (AST).
+- It parses the prompt looking for raw code (e.g., Go or Python source code).
+- It structurally strips out non-functional comments, docstrings, and zeroes out deep function bodies using native Abstract Syntax Trees (AST).
 - It reserializes a heavily optimized, much smaller JSON payload.
 
 ### 4. The Deficit Round Robin (DRR) Router

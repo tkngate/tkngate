@@ -12,6 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Production Helm Chart**: Added `charts/tkngate` for seamless integration into enterprise Kubernetes infrastructure.
 - **Secure Dashboard Authentication**: Implemented a secure HTML injection interceptor so the local React telemetry dashboard authenticates effortlessly against the strict Zero-Trust API without needing a manual login screen.
 
+## [v2.7.0] - Python AST Context Compressor
+
+### Added
+- **AST Payload Pruning**: Added a Python-based AST compressor (`blast_deepseek.py`) that intelligently strips comments, docstrings, and truncates function bodies from Python source code payloads, saving massive token costs for LLM coding agents.
+- **Compressor Middleware**: Integrated an AST compressor pipeline into the proxy engine (`internal/compressor/python.go`) to automatically prune code tokens on the fly before they hit upstream LLM APIs.
+
+
 ## [v2.6.0] - Fleet Orchestration & Enterprise Readiness
 
 ### Added
