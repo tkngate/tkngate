@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.8.0] - The Zero-Trust Kubernetes Sidecar
+
+### Added
+- **Enterprise Pivot**: Transitioned primary positioning to a Zero-Trust Kubernetes Sidecar for LLM Agents.
+- **Production Helm Chart**: Added `charts/tkngate` for seamless integration into enterprise Kubernetes infrastructure.
+- **Secure Dashboard Authentication**: Implemented a secure HTML injection interceptor so the local React telemetry dashboard authenticates effortlessly against the strict Zero-Trust API without needing a manual login screen.
+
 ## [v2.6.0] - Fleet Orchestration & Enterprise Readiness
 
 ### Added
