@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/viper"
 )
 
@@ -24,6 +25,7 @@ type Config struct {
 	P2P        P2PConfig                 `mapstructure:"p2p" json:"p2p"`
 	Cluster    ClusterConfig             `mapstructure:"cluster" json:"cluster"`
 	Audit      AuditConfig               `mapstructure:"audit" json:"audit"`
+	OTEL       OTELConfig                `mapstructure:"otel" json:"otel"`
 }
 
 type P2PConfig struct {
@@ -45,6 +47,13 @@ type AuditConfig struct {
 	Enabled bool   `mapstructure:"enabled" json:"enabled"`
 	SinkURL string `mapstructure:"sink_url" json:"sink_url"`
 	Format  string `mapstructure:"format" json:"format"`
+}
+
+type OTELConfig struct {
+	Enabled      bool   `mapstructure:"enabled" json:"enabled"`
+	ExporterType string `mapstructure:"exporter_type" json:"exporter_type"` // "http" or "grpc"
+	Endpoint     string `mapstructure:"endpoint" json:"endpoint"`
+	ServiceName  string `mapstructure:"service_name" json:"service_name"`
 }
 
 type WAFConfig struct {
@@ -147,6 +156,15 @@ func LoadConfig() error {
 	if err := viper.Unmarshal(&Cfg); err != nil {
 		return fmt.Errorf("unable to decode into struct: %w", err)
 	}
+
+	// Enable hot-reloading for Kubernetes ConfigMaps and direct file edits
+	viper.WatchConfig()
+	viper.OnConfigChange(func(e fsnotify.Event) {
+		// Attempt to reload the struct when the file changes
+		if err := viper.Unmarshal(&Cfg); err == nil {
+			validateConfig()
+		}
+	})
 
 	return validateConfig()
 }
@@ -262,6 +280,13 @@ func validateConfig() error {
 	}
 	if Cfg.P2P.MaxPeers == 0 {
 		Cfg.P2P.MaxPeers = 100
+	}
+
+	if Cfg.OTEL.ExporterType == "" {
+		Cfg.OTEL.ExporterType = "http"
+	}
+	if Cfg.OTEL.ServiceName == "" {
+		Cfg.OTEL.ServiceName = "tkngate"
 	}
 
 	return nil

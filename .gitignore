@@ -4,6 +4,8 @@
 /tkngate.exe*
 tkngate-*.exe
 *.exe~
+*~
+tkngate~
 check_embed.go
 
 # Config with secrets
