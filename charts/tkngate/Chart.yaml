@@ -5,8 +5,8 @@ description: >
   Deploys TknGate as a standalone service or a sidecar container that isolates
   LLM provider credentials in-memory inside your private VPC.
 type: application
-version: 1.0.0
-appVersion: "2.8.0"
+version: 0.1.1
+appVersion: "v2.8.0"
 keywords:
   - ai
   - llm
