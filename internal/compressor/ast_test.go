@@ -50,3 +50,87 @@ func TestCompress_JSON(t *testing.T) {
 		t.Errorf("Compressor modified JSON payload. Expected %q, got %q", input, output)
 	}
 }
+
+func TestCompressJS(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name: "Basic Function",
+			input: `function foo(x: string) {
+	console.log(x);
+	return x;
+}`,
+			expected: `function foo(x: string) { /* body omitted */ }`,
+		},
+		{
+			name: "Arrow Function",
+			input: `const a = () => {
+	// do something
+	return 1;
+}`,
+			expected: `const a = () => { /* body omitted */ }`,
+		},
+		{
+			name: "Class with Methods",
+			input: `export class MyClass<T> {
+	constructor(public arg: T) {
+		this.init();
+	}
+	public doAction(): void {
+		console.log("action");
+	}
+}`,
+			expected: `export class MyClass<T> {
+	constructor(public arg: T) { /* body omitted */ }
+	public doAction(): void { /* body omitted */ }
+}`,
+		},
+		{
+			name: "Control Flow Preserved",
+			input: `if (true) {
+	doX();
+}
+for (let i=0; i<10; i++) {
+	console.log(i);
+}`,
+			expected: `if (true) {
+	doX();
+}
+for (let i=0; i<10; i++) {
+	console.log(i);
+}`,
+		},
+		{
+			name: "Object Literal Preserved but Methods Dropped",
+			input: `const obj = {
+	a: 1,
+	b: () => {
+		return 2;
+	},
+	c() {
+		return 3;
+	}
+}`,
+			expected: `const obj = {
+	a: 1,
+	b: () => { /* body omitted */ },
+	c() { /* body omitted */ }
+}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := compressJS(tt.input)
+			// Ignore whitespace differences in testing
+			gotCompact := strings.Join(strings.Fields(got), " ")
+			expCompact := strings.Join(strings.Fields(tt.expected), " ")
+			if gotCompact != expCompact {
+				t.Errorf("\nGot:\n%s\nExpected:\n%s", got, tt.expected)
+			}
+		})
+	}
+}

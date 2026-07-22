@@ -17,6 +17,7 @@ require (
 	github.com/redis/go-redis/v9 v9.20.1
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
+	github.com/tdewolff/parse/v2 v2.8.13
 	golang.org/x/crypto v0.53.0
 	golang.org/x/time v0.15.0
 	modernc.org/sqlite v1.52.0

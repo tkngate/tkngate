@@ -2,77 +2,108 @@ package compressor
 
 import (
 	"strings"
+
+	"github.com/tdewolff/parse/v2"
+	"github.com/tdewolff/parse/v2/js"
 )
 
-// compressJS performs heuristic bracket-counting minification for JS/TS.
-// It looks for common function signatures and drops their bodies.
+// compressJS performs structural minification for JS/TS using a robust lexer.
+// It losslessly drops comments and strips deep function/class method bodies,
+// leaving signatures intact to save massive amounts of context tokens.
 func compressJS(content string) string {
+	l := js.NewLexer(parse.NewInputString(content))
+
 	var result strings.Builder
+	// Pre-allocate for performance
+	result.Grow(len(content) / 2)
 
-	inFunctionBlock := false
-	bracketDepth := 0
+	inOmitBlock := false
+	omitDepth := 0
 
-	lines := strings.Split(content, "\n")
+	var lastSigToken js.TokenType
+	var lastSigText string
 
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
+	// Stack to remember what token preceded a '('
+	type parenCtx struct {
+		token js.TokenType
+		text  string
+	}
+	var parenStack []parenCtx
+	var lastParenOwner parenCtx
 
-		// Are we currently ignoring lines inside a function body?
-		if inFunctionBlock {
-			// We need to count brackets on this line to see if we exit the function
-			for _, char := range line {
-				switch char {
-				case '{':
-					bracketDepth++
-				case '}':
-					bracketDepth--
+	awaitingFuncBody := false
+
+	for {
+		tt, textBytes := l.Next()
+		if tt == js.ErrorToken {
+			break
+		}
+
+		text := string(textBytes)
+
+		// 1. Drop comments unconditionally
+		if tt == js.CommentToken {
+			continue
+		}
+
+		// 2. Handle block omitting
+		if inOmitBlock {
+			if tt == js.OpenBraceToken {
+				omitDepth++
+			} else if tt == js.CloseBraceToken {
+				omitDepth--
+				if omitDepth == 0 {
+					inOmitBlock = false
+					result.WriteString("}") // close the block
 				}
-			}
-
-			if bracketDepth <= 0 {
-				inFunctionBlock = false
-				// Maintain indentation
-				indent := len(line) - len(strings.TrimLeft(line, " \t"))
-				result.WriteString(line[:indent])
-				result.WriteString("}\n")
 			}
 			continue
 		}
 
-		// Does this line declare a function and open a block?
-		// We look for typical JS/TS function signatures ending with '{'
-		isFunc := strings.Contains(trimmed, "function") ||
-			strings.Contains(trimmed, "=>") ||
-			(strings.Contains(trimmed, "(") && strings.Contains(trimmed, ")") && strings.HasSuffix(trimmed, "{"))
-
-		if isFunc && strings.HasSuffix(trimmed, "{") {
-			result.WriteString(line)
-			result.WriteByte('\n')
-
-			// Calculate starting depth for this line
-			bracketDepth = 0
-			for _, char := range line {
-				switch char {
-				case '{':
-					bracketDepth++
-				case '}':
-					bracketDepth--
-				}
+		// 3. Track Parens to distinguish functions from control flow
+		if tt == js.OpenParenToken {
+			parenStack = append(parenStack, parenCtx{lastSigToken, lastSigText})
+			awaitingFuncBody = false
+		} else if tt == js.CloseParenToken {
+			if len(parenStack) > 0 {
+				lastParenOwner = parenStack[len(parenStack)-1]
+				parenStack = parenStack[:len(parenStack)-1]
+			} else {
+				lastParenOwner = parenCtx{}
 			}
-
-			if bracketDepth > 0 {
-				inFunctionBlock = true
-				indent := len(line) - len(strings.TrimLeft(line, " \t"))
-				result.WriteString(strings.Repeat(" ", indent+2))
-				result.WriteString("/* body omitted */\n")
+			
+			owner := lastParenOwner.text
+			if owner != "if" && owner != "for" && owner != "while" && owner != "switch" && owner != "catch" && owner != "with" {
+				awaitingFuncBody = true
 			}
-			continue
+		} else if tt == js.ArrowToken {
+			awaitingFuncBody = true
+		} else if tt == js.SemicolonToken || tt == js.EqToken || tt == js.CommaToken || tt == js.CloseBraceToken ||
+			tt == js.LetToken || tt == js.ConstToken || tt == js.VarToken || tt == js.ClassToken ||
+			tt == js.IfToken || tt == js.ForToken || tt == js.WhileToken || tt == js.SwitchToken {
+			awaitingFuncBody = false
 		}
 
-		result.WriteString(line)
-		result.WriteByte('\n')
+		// 4. Detect function/method bodies
+		if tt == js.OpenBraceToken {
+			if awaitingFuncBody {
+				inOmitBlock = true
+				omitDepth = 1
+				awaitingFuncBody = false
+				result.WriteString("{ /* body omitted */ ")
+				continue
+			}
+		}
+
+		// Write the token
+		result.WriteString(text)
+
+		// Update significant token
+		if tt != js.WhitespaceToken && tt != js.LineTerminatorToken {
+			lastSigToken = tt
+			lastSigText = text
+		}
 	}
 
-	// Trim the final trailing newline
-	return strings.TrimSuffix(result.String(), "\n")
+	return strings.TrimSpace(result.String())
 }
