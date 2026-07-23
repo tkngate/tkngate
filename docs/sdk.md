@@ -11,27 +11,15 @@ Tkngate seamlessly supports 8 distinct LLM providers:
 
 You can dynamically target any of these providers using the same official SDK (e.g., the standard OpenAI library) simply by changing the `provider` argument in our wrappers!
 
-## SDK Distribution & Publishing
-
-If you need to distribute these SDKs internally or publish them to public registries, use the standard package managers:
-
-**Node.js (NPM)**
-```bash
-cd sdks/node
-npm run build # (if applicable)
-npm publish --access public
-```
-
-**Python (PyPI)**
-```bash
-cd sdks/python
-python setup.py sdist bdist_wheel
-twine upload dist/*
-```
 
 ## Supported Languages
 
 ### Node.js / TypeScript
+**Installation:**
+```bash
+npm install tkngate
+```
+**Usage:**
 ```javascript
 const { wrapConfig, wrapAnthropicConfig } = require('tkngate');
 
@@ -45,6 +33,11 @@ const anthropic = new Anthropic(wrapAnthropicConfig());
 ```
 
 ### Python
+**Installation:**
+```bash
+pip install tkngate
+```
+**Usage:**
 ```python
 from tkngate import wrap, wrap_anthropic
 
@@ -56,14 +49,28 @@ client = wrap_anthropic(Anthropic())
 ```
 
 ### Go
+**Installation:**
+```bash
+go get github.com/tkngate/tkngate/sdks/go/tkngate
+```
+**Usage:**
 ```go
-import "tkngate"
+import "github.com/tkngate/tkngate/sdks/go/tkngate"
 
 // Wrap the standard HTTP client
 client := tkngate.WrapClient(nil, "tkngate-sk-...", "openai", "session-123")
 ```
 
 ### Java
+**Installation (Maven):**
+```xml
+<dependency>
+    <groupId>com.tkngate</groupId>
+    <artifactId>tkngate-sdk</artifactId>
+    <version>1.0.0</version>
+</dependency>
+```
+**Usage:**
 ```java
 import com.tkngate.TkngateInterceptor;
 
@@ -73,6 +80,11 @@ OkHttpClient client = new OkHttpClient.Builder()
 ```
 
 ### Ruby
+**Installation:**
+```bash
+gem install tkngate
+```
+**Usage:**
 ```ruby
 require 'tkngate/faraday_middleware'
 
@@ -82,6 +94,11 @@ end
 ```
 
 ### C# / .NET
+**Installation:**
+```bash
+dotnet add package Tkngate
+```
+**Usage:**
 ```csharp
 using Tkngate;
 
@@ -89,6 +106,11 @@ var client = new HttpClient(new TkngateHandler());
 ```
 
 ### Rust
+**Installation:**
+```bash
+cargo add tkngate
+```
+**Usage:**
 ```rust
 use reqwest_middleware::ClientBuilder;
 use tkngate::TkngateMiddleware;
@@ -100,6 +122,11 @@ let client = ClientBuilder::new(reqwest_client)
 ```
 
 ### PHP
+**Installation:**
+```bash
+composer require tkngate/tkngate
+```
+**Usage:**
 ```php
 use Tkngate\TkngateMiddleware;
 use GuzzleHttp\HandlerStack;
