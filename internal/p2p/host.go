@@ -83,7 +83,7 @@ func InitHost(ctx context.Context) error {
 	logging.Logger.Info("P2P Host started", "peer_id", h.ID(), "addrs", h.Addrs())
 
 	// 4. Initialize DHT
-	kademliaDHT, err := dht.New(ctx, h, dht.Mode(dht.ModeAuto))
+	kademliaDHT, err := dht.New(h, dht.Mode(dht.ModeAuto))
 	if err != nil {
 		return fmt.Errorf("failed to create DHT: %w", err)
 	}
