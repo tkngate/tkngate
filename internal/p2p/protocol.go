@@ -17,6 +17,7 @@ import (
 	"tkngate/internal/logging"
 	"tkngate/internal/mesh"
 	"tkngate/internal/pool"
+	"tkngate/internal/zkp"
 
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark/backend/groth16"
@@ -214,10 +215,16 @@ func handleRouteStream(s network.Stream) {
 	}
 	_ = json.Unmarshal(bodyBytes, &genericResp)
 
+	encryptedBody, err := EncryptPayload(aesKey, bodyBytes)
+	if err != nil {
+		sendRouteError(s, fmt.Sprintf("failed to encrypt response: %v", err))
+		return
+	}
+
 	resp := RouteResponse{
 		Success:            true,
 		ErrorMessage:       "",
-		EncryptedResponse:  bodyBytes,
+		EncryptedResponse:  encryptedBody,
 		InputTokensUsed:    genericResp.Usage.PromptTokens,
 		OutputTokensUsed:   genericResp.Usage.CompletionTokens,
 	}
@@ -400,7 +407,23 @@ func OffloadRequest(ctx context.Context, provider string, model string, sessionI
 		}
 
 		if config.Cfg.Mesh.StrictZKPMode {
-			req.ZkpProof = []byte("dummy_proof")
+			if zkp.GlobalZKP != nil {
+				proof, nonce, err := zkp.GlobalZKP.GenerateProof(string(inputBody))
+				if err != nil {
+					lastErr = fmt.Errorf("zkp generation failed: %v", err)
+					continue
+				}
+				
+				var proofBuf bytes.Buffer
+				if _, err := proof.WriteTo(&proofBuf); err == nil {
+					req.ZkpProof = proofBuf.Bytes()
+				}
+				if nonce != nil {
+					req.ZkpNonce = nonce.Bytes()
+				}
+			} else {
+				req.ZkpProof = []byte("dummy_proof")
+			}
 		}
 
 		logging.Logger.Info("Offloading prompt to P2P peer", "peer", selectedPeer.String(), "latency", peerRes.latency, "provider", provider)
@@ -415,6 +438,13 @@ func OffloadRequest(ctx context.Context, provider string, model string, sessionI
 			lastErr = fmt.Errorf("peer error: %s", resp.ErrorMessage)
 			continue
 		}
+		
+		decryptedResp, err := DecryptPayload(aesKey, resp.EncryptedResponse)
+		if err != nil {
+			lastErr = fmt.Errorf("failed to decrypt response from peer %s: %v", selectedPeer.String(), err)
+			continue
+		}
+		resp.EncryptedResponse = decryptedResp
 		
 		return resp, nil
 	}

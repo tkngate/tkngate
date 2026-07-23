@@ -123,3 +123,70 @@ func TestCanonicalizePayload(t *testing.T) {
 		t.Errorf("Expected canonical payload to keep model, got %s", string(canonical))
 	}
 }
+
+func TestCanonicalizePayload_ToolCalling(t *testing.T) {
+	// Payload 1: Base request with tool calls and a specific tool order
+	payload1 := []byte(`{
+		"model": "gpt-4o",
+		"messages": [
+			{"role": "user", "content": "Fetch the weather"},
+			{
+				"role": "assistant",
+				"content": null,
+				"tool_calls": [
+					{
+						"id": "call_abc123",
+						"type": "function",
+						"function": {"name": "get_weather", "arguments": "{\"location\": \"London\"}"}
+					}
+				]
+			},
+			{
+				"role": "tool",
+				"tool_call_id": "call_abc123",
+				"content": "{\"temp\": 15}"
+			}
+		],
+		"tools": [
+			{"type": "function", "function": {"name": "get_weather", "description": "Get weather"}},
+			{"type": "function", "function": {"name": "search_web", "description": "Search"}}
+		],
+		"response_format": {"type": "json_object"}
+	}`)
+
+	// Payload 2: Identical conversational tree, but different randomly generated tool call IDs and different tool array order
+	payload2 := []byte(`{
+		"model": "gpt-4o",
+		"messages": [
+			{"role": "user", "content": "Fetch the weather"},
+			{
+				"role": "assistant",
+				"content": null,
+				"tool_calls": [
+					{
+						"id": "call_xyz890",
+						"type": "function",
+						"function": {"name": "get_weather", "arguments": "{\"location\": \"London\"}"}
+					}
+				]
+			},
+			{
+				"role": "tool",
+				"tool_call_id": "call_xyz890",
+				"content": "{\"temp\": 15}"
+			}
+		],
+		"tools": [
+			{"type": "function", "function": {"name": "search_web", "description": "Search"}},
+			{"type": "function", "function": {"name": "get_weather", "description": "Get weather"}}
+		],
+		"response_format": {"type": "json_object"}
+	}`)
+
+	hash1 := canonicalizePayload(payload1)
+	hash2 := canonicalizePayload(payload2)
+
+	if !bytes.Equal(hash1, hash2) {
+		t.Errorf("canonicalizePayload failed to normalize tool calls and schema structures.\nHash1: %s\nHash2: %s", string(hash1), string(hash2))
+	}
+}
