@@ -175,24 +175,21 @@ cp tkngate.example.yaml tkngate.yaml
 
 The proxy starts on `localhost:7477`. The telemetry dashboard opens at `localhost:7478`.
 
-Point your existing agent at TknGate — **no code rewrites needed**:
-
-```python
-# Python (OpenAI SDK)
-from openai import OpenAI
-client = OpenAI(
-    api_key="your-tkngate-virtual-key",
-    base_url="http://localhost:7477/v1"
-)
-```
+Point your existing agent at TknGate using our official SDKs — **no code rewrites needed**. We support **Node.js, Python, Go, Java, Ruby, C#, Rust, and PHP**.
 
 ```javascript
-// Node.js (OpenAI SDK)
-const openai = new OpenAI({
-  apiKey: "your-tkngate-virtual-key",
-  baseURL: "http://localhost:7477/v1"
-});
+// Node.js
+const { wrapConfig } = require('tkngate');
+const openai = new OpenAI(wrapConfig());
 ```
+
+```python
+# Python
+from tkngate import wrap
+client = wrap(OpenAI())
+```
+
+👉 **[View the full SDK documentation for all languages here](./docs/sdk.md)**
 
 ---
 

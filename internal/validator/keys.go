@@ -69,8 +69,28 @@ func ValidateKey(provider, key string) error {
 		return validateOpenAICompatible(client, key, "https://api.moonshot.cn/v1/models", "Kimi")
 	case "groq":
 		return validateOpenAICompatible(client, key, "https://api.groq.com/openai/v1/models", "Groq")
+	case "gemini":
+		req, err := http.NewRequest("GET", "https://generativelanguage.googleapis.com/v1beta/models", nil)
+		if err != nil {
+			return err
+		}
+		req.Header.Set("x-goog-api-key", key)
+
+		resp, err := client.Do(req)
+		if err != nil {
+			return fmt.Errorf("network error connecting to Gemini: %v", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode == 401 || resp.StatusCode == 400 || resp.StatusCode == 403 {
+			return fmt.Errorf("invalid or revoked Gemini API key")
+		}
+		if resp.StatusCode != 200 {
+			return fmt.Errorf("unexpected status code from Gemini: %d", resp.StatusCode)
+		}
+		return nil
 	default:
-		return fmt.Errorf("unsupported provider '%s' for validation. Supported providers: openai, anthropic, deepseek, mistral, kimi, groq, ollama", provider)
+		return fmt.Errorf("unsupported provider '%s' for validation. Supported providers: openai, anthropic, deepseek, mistral, kimi, groq, ollama, gemini", provider)
 	}
 }
 

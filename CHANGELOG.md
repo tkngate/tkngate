@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.8.2] - Polyglot SDK Expansion
+
+### Added
+- **Polyglot SDKs**: Added official zero-dependency middleware SDKs for Go, Java, Ruby, C#, Rust, and PHP.
+- **Anthropic Support**: Upgraded the Node.js and Python SDKs to natively wrap Anthropic clients.
+- **Dynamic Routing**: SDKs now automatically inject `X-Tkngate-Provider` and `X-Tkngate-Session-ID` headers to streamline downstream telemetry.
 
 ## [v2.8.1] - Kubernetes Observability Expansion
 
