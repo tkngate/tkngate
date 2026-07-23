@@ -134,3 +134,83 @@ for (let i=0; i<10; i++) {
 		})
 	}
 }
+
+func TestHeuristics(t *testing.T) {
+	tests := []struct {
+		name     string
+		content  string
+		isJSON   bool
+		isGo     bool
+		isPython bool
+		isJS     bool
+	}{
+		{
+			name: "Go Code",
+			content: `package main
+			import "fmt"
+			func main() {
+				fmt.Println("hello")
+			}
+			func help() {}`,
+			isJSON:   false,
+			isGo:     true,
+			isPython: false,
+			isJS:     false,
+		},
+		{
+			name: "Python Code",
+			content: `def foo():
+				pass
+			class Bar:
+				def baz(self):
+					pass`,
+			isJSON:   false,
+			isGo:     false,
+			isPython: true,
+			isJS:     false,
+		},
+		{
+			name: "JS Code",
+			content: `function a() {}
+			const b = () => {}
+			export class C {}`,
+			isJSON:   false,
+			isGo:     false,
+			isPython: false,
+			isJS:     true,
+		},
+		{
+			name: "JSON Payload",
+			content: `{"key": "value", "list": [1,2,3]}`,
+			isJSON:   true,
+			isGo:     false,
+			isPython: false,
+			isJS:     false,
+		},
+		{
+			name: "Natural Language",
+			content: `This is just a regular text sentence. It should not be compressed.`,
+			isJSON:   false,
+			isGo:     false,
+			isPython: false,
+			isJS:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isJSON(tt.content); got != tt.isJSON {
+				t.Errorf("isJSON() = %v, want %v", got, tt.isJSON)
+			}
+			if got := isGoCode(tt.content); got != tt.isGo {
+				t.Errorf("isGoCode() = %v, want %v", got, tt.isGo)
+			}
+			if got := isPythonCode(tt.content); got != tt.isPython {
+				t.Errorf("isPythonCode() = %v, want %v", got, tt.isPython)
+			}
+			if got := isJSCode(tt.content); got != tt.isJS {
+				t.Errorf("isJSCode() = %v, want %v", got, tt.isJS)
+			}
+		})
+	}
+}

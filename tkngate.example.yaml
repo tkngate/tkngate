@@ -25,6 +25,9 @@ compressor:
   enabled: true
   soft_token_limit: 4000
   strategy: "go-ast"
+  enable_go: true
+  enable_python: true
+  enable_js: true
 
 cache:
   enabled: true

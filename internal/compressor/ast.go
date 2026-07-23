@@ -7,6 +7,7 @@ import (
 	"go/printer"
 	"go/token"
 	"strings"
+	"tkngate/internal/config"
 )
 
 // Compress evaluates the content and structurally reduces it based on its language.
@@ -20,11 +21,11 @@ func Compress(content string) string {
 		return content
 	}
 
-	if isGoCode(content) {
+	if isGoCode(content) && (config.Cfg.Compressor.EnableGo == nil || *config.Cfg.Compressor.EnableGo) {
 		return compressGo(content)
-	} else if isPythonCode(content) {
+	} else if isPythonCode(content) && (config.Cfg.Compressor.EnablePython == nil || *config.Cfg.Compressor.EnablePython) {
 		return compressPython(content)
-	} else if isJSCode(content) {
+	} else if isJSCode(content) && (config.Cfg.Compressor.EnableJS == nil || *config.Cfg.Compressor.EnableJS) {
 		return compressJS(content)
 	}
 
