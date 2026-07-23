@@ -25,6 +25,8 @@ func getDefaultBaseURL(provider string) string {
 		return "https://api.groq.com/openai"
 	case "ollama":
 		return "http://127.0.0.1:11434"
+	case "gemini":
+		return "https://generativelanguage.googleapis.com"
 	default:
 		return "https://api.openai.com"
 	}
@@ -96,6 +98,8 @@ func Director(req *http.Request) {
 	if providerKey == "anthropic" {
 		req.Header.Set("x-api-key", providerCfg.APIKey)
 		req.Header.Set("anthropic-version", "2023-06-01") // typically required
+	} else if providerKey == "gemini" {
+		req.Header.Set("x-goog-api-key", providerCfg.APIKey)
 	} else {
 		req.Header.Set("Authorization", "Bearer "+providerCfg.APIKey)
 	}

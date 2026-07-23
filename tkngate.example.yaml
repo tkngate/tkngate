@@ -11,6 +11,10 @@ providers:
     api_key: "sk-ant-YOUR_ANTHROPIC_KEY_HERE"
     base_url: "https://api.anthropic.com/v1"
     default_model: "claude-sonnet-4-20250514"
+  gemini:
+    api_key: "YOUR_GEMINI_KEY_HERE"
+    base_url: "https://generativelanguage.googleapis.com/v1beta/openai"
+    default_model: "gemini-1.5-pro"
 
 budget:
   global_limit_usd: 50.00
