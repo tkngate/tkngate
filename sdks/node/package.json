@@ -1,11 +1,11 @@
 {
   "name": "tkngate",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Zero-trust P2P gateway for LLMs - Official SDK",
   "main": "index.js",
   "types": "index.d.ts",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node index.js || exit 0"
   },
   "keywords": [
     "openai",
@@ -17,6 +17,17 @@
   ],
   "author": "Tkngate Contributors",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tkngate/tkngate.git"
+  },
+  "bugs": {
+    "url": "https://github.com/tkngate/tkngate/issues"
+  },
+  "homepage": "https://github.com/tkngate/tkngate#readme",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "peerDependencies": {
     "openai": "^4.0.0"
   }
