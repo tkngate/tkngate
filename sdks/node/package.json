@@ -1,7 +1,7 @@
 {
   "name": "tkngate",
-  "version": "1.0.0",
-  "description": "Drop-in wrapper for the OpenAI Node.js SDK to route traffic through the Tkngate proxy.",
+  "version": "1.0.1",
+  "description": "Zero-trust P2P gateway for LLMs - Official SDK",
   "main": "index.js",
   "types": "index.d.ts",
   "scripts": {
