@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+
 ## [v2.8.1] - Kubernetes Observability Expansion
 
 ### Added
@@ -18,6 +19,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Enterprise Pivot**: Transitioned primary positioning to a Zero-Trust Kubernetes Sidecar for LLM Agents.
 - **Production Helm Chart**: Added `charts/tkngate` for seamless integration into enterprise Kubernetes infrastructure.
 - **Secure Dashboard Authentication**: Implemented a secure HTML injection interceptor so the local React telemetry dashboard authenticates effortlessly against the strict Zero-Trust API without needing a manual login screen.
+
+## [v2.7.1] - Multi-Language AST Compressor & Telemetry
+
+### Added
+- **Multi-Language AST Context Compressor**: Expanded the context compressor to structurally prune JS/TS and Go payloads alongside Python.
+- **Granular Compressor Configuration**: Added `enable_go`, `enable_python`, and `enable_js` configuration toggles to selectively control which languages the AST compressor parses.
+- **AST Telemetry Dashboard**: The React telemetry dashboard now tracks and visually displays the exact number of tokens saved by the proxy-side context compressor in real-time.
+- **Robust Code Heuristics**: Added comprehensive unit tests and logic to strictly prevent the compressor from mangling JSON tool-call payloads and natural language.
 
 ## [v2.7.0] - Python AST Context Compressor
 

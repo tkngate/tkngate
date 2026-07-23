@@ -284,6 +284,14 @@ func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 				compressedBody := compressPayload(inputBody)
 				if len(compressedBody) < len(inputBody) {
 					logging.Logger.Info("Context compression successful", "original_bytes", len(inputBody), "new_bytes", len(compressedBody))
+					
+					outTokens := t.Counter.Count(string(compressedBody), reqModel)
+					savedTokens := inTokens - outTokens
+					if savedTokens > 0 {
+						telemetry.TokensSavedByCompressorTotal.Add(float64(savedTokens))
+						atomic.AddInt64(&telemetry.RawTokensSavedByCompressor, int64(savedTokens))
+					}
+
 					inputBody = compressedBody
 					req.Body = io.NopCloser(bytes.NewBuffer(inputBody))
 					req.ContentLength = int64(len(inputBody))

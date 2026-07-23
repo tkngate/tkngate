@@ -234,6 +234,7 @@ func handleOverview(w http.ResponseWriter, r *http.Request) {
 			"entries": cacheSize,
 			"savings": cacheSavings,
 		},
+		"tokens_saved_by_compressor": atomic.LoadInt64(&telemetry.RawTokensSavedByCompressor),
 		"timestamp": time.Now(),
 	}
 

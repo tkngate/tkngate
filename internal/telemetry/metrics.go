@@ -6,10 +6,11 @@ import (
 )
 
 var (
-	RawWafBlocks          int64
-	RawZkpVerified        int64
-	RawZkpFailed          int64
-	RawPromptsOffloaded   int64
+	RawWafBlocks               int64
+	RawZkpVerified             int64
+	RawZkpFailed               int64
+	RawPromptsOffloaded        int64
+	RawTokensSavedByCompressor int64
 )
 
 var (
@@ -103,6 +104,14 @@ var (
 		prometheus.CounterOpts{
 			Name: "tkngate_zkp_failed_total",
 			Help: "Total number of invalid ZK-SNARK proofs rejected",
+		},
+	)
+
+	// TokensSavedByCompressorTotal tracks the total number of tokens saved by the AST compressor.
+	TokensSavedByCompressorTotal = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Name: "tkngate_tokens_saved_by_compressor_total",
+			Help: "The total number of tokens saved by the AST context compressor",
 		},
 	)
 )

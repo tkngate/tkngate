@@ -86,6 +86,9 @@ type CompressorConfig struct {
 	Enabled        bool   `mapstructure:"enabled" json:"enabled"`
 	SoftTokenLimit int    `mapstructure:"soft_token_limit" json:"soft_token_limit"`
 	Strategy       string `mapstructure:"strategy" json:"strategy"`
+	EnableGo       *bool  `mapstructure:"enable_go" json:"enable_go"`
+	EnablePython   *bool  `mapstructure:"enable_python" json:"enable_python"`
+	EnableJS       *bool  `mapstructure:"enable_js" json:"enable_js"`
 }
 
 type CacheConfig struct {
@@ -236,6 +239,18 @@ func validateConfig() error {
 	}
 	if Cfg.Compressor.Strategy == "" {
 		Cfg.Compressor.Strategy = "go-ast"
+	}
+	if Cfg.Compressor.EnableGo == nil {
+		t := true
+		Cfg.Compressor.EnableGo = &t
+	}
+	if Cfg.Compressor.EnablePython == nil {
+		t := true
+		Cfg.Compressor.EnablePython = &t
+	}
+	if Cfg.Compressor.EnableJS == nil {
+		t := true
+		Cfg.Compressor.EnableJS = &t
 	}
 
 	if Cfg.Cache.MaxEntries == 0 {
