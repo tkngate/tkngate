@@ -195,38 +195,38 @@ client = wrap(OpenAI())
 
 ## Features
 
-### 🛡️ Zero-Trust Credential Isolation
+###  Zero-Trust Credential Isolation
 Agents authenticate with virtual keys. Real provider credentials never enter the agent's process memory or context window. Prompt injection attacks exfiltrate nothing.
 
-### 🔐 ZK-SNARK Prompt Attestations
+###  ZK-SNARK Prompt Attestations
 The **only LLM proxy** that uses zero-knowledge proofs (Groth16 BN254) to mathematically prove a prompt is safe without reading its content.
 ```yaml
 mesh:
   strict_zkp_mode: true
 ```
 
-### 💰 Hard USD Circuit Breakers
+###  Hard USD Circuit Breakers
 Most tools let you *monitor* spend. TknGate lets you *stop* it. Per-session and global budgets with GREEN/AMBER/RED zone enforcement — connections terminate at the byte level when breached.
 
-### 🧠 Tool-Call Aware Semantic Caching (v2.7.0)
+###  Tool-Call Aware Semantic Caching (v2.7.0)
 Deterministic cache keys that handle tool-calling payloads correctly — scrubs random `tool_call_id` fields and sorts tool arrays so identical agent conversations always hit cache, regardless of ID generation or tool ordering.
 
-### 👁️ Shadow Mode — A/B Test Any Two Models
+###  Shadow Mode — A/B Test Any Two Models
 Fork a percentage of live traffic to a second provider and compare outputs and costs with zero changes to your agent code.
 
-### 🤝 Encrypted P2P Token Mesh
+###  Encrypted P2P Token Mesh
 Donate spare API quota into a cryptographically secured pool. Keys are encrypted with AES-256-GCM, never exposed in plaintext. Deficit Round-Robin (DRR) ensures fair allocation and throttles free-riders.
 
-### 🌍 Global P2P Mesh Network
+###  Global P2P Mesh Network
 Nodes discover each other via Kademlia DHT and mDNS. Reputation updates broadcast via GossipSub with Ed25519 signatures. Anti-Sybil Decay penalises idle nodes.
 
-### 📊 Embedded Real-Time Dashboard
+###  Embedded Real-Time Dashboard
 React UI served from the binary itself — real-time WAF intercepts, ZKP counts, mesh capacity, budget zones, per-key spend. No separate Node.js deployment needed.
 
-### 🖥️ Interactive CLI
+###  Interactive CLI
 Run `./tkngate` with no arguments for a beautiful TUI menu. Manage orgs, budgets, API keys, peers, and demos without memorising flags.
 
-### 📈 Prometheus Metrics
+###  Prometheus Metrics
 Native export at `/metrics` for Grafana, Datadog, or New Relic.
 
 ---
