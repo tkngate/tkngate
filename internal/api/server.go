@@ -63,6 +63,8 @@ func StartTelemetryServer(host string, port int) error {
 	mux.HandleFunc("/api/v1/waf/rules", withCORS(withAuth(handleWafRules)))
 	mux.HandleFunc("/api/v1/fleet/status", withCORS(withAuth(handleFleetStatus)))
 	mux.HandleFunc("/api/v1/shadow/stream", withCORS(handleShadowStream))
+	mux.HandleFunc("/api/v1/billing/export/csv", withCORS(withAuth(handleExportCSV)))
+	mux.HandleFunc("/api/v1/billing/forecast", withCORS(withAuth(handleForecast)))
 	mux.Handle("/metrics", promhttp.Handler())
 	mux.HandleFunc("/healthz", handleHealthz)
 	mux.HandleFunc("/readyz", handleReadyz)

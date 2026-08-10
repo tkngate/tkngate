@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.8.3] - Cost Tracking & Budget Management
+
+### Added
+- **Proactive Alerting Engine**: Configurable Slack, Webhook, and Email alerts when Virtual Key or Global budgets enter AMBER (70%) or RED (95%) zones.
+- **Billing Telemetry API**: Added endpoints `/api/v1/billing/export/csv` for usage exports and `/api/v1/billing/forecast` for ML-based budget burn rate projections.
+- **Ledger Extensions**: Added `current_state` to virtual keys and `virtual_key_hash` to transactions for accurate state transition tracking.
+
 ## [v2.8.2] - Polyglot SDK Expansion
 
 ### Added

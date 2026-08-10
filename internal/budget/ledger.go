@@ -3,6 +3,7 @@ package budget
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -109,6 +110,10 @@ func InitLedger() error {
 	db.Exec(`ALTER TABLE tkngate_virtual_keys ADD COLUMN org_id INTEGER DEFAULT 0`)
 	db.Exec(`ALTER TABLE tkngate_virtual_keys ADD COLUMN allowed_providers TEXT DEFAULT ''`)
 
+	// v2.6.0: Add virtual_key_hash to transactions and current_state to virtual keys for alerting
+	db.Exec(`ALTER TABLE transactions ADD COLUMN virtual_key_hash TEXT DEFAULT ''`)
+	db.Exec(`ALTER TABLE tkngate_virtual_keys ADD COLUMN current_state TEXT DEFAULT 'GREEN'`)
+
 	GlobalLedger = &Ledger{db: db}
 	return nil
 }
@@ -129,10 +134,10 @@ func (l *Ledger) RecordTransaction(tx Transaction) error {
 		}
 	}
 
-	query := `INSERT INTO transactions (session_id, provider, model, input_tokens, output_tokens, estimated_cost_usd, timestamp) 
-			  VALUES (?, ?, ?, ?, ?, ?, ?)`
+	query := `INSERT INTO transactions (session_id, virtual_key_hash, provider, model, input_tokens, output_tokens, estimated_cost_usd, timestamp) 
+			  VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
 
-	_, err := l.db.Exec(query, tx.SessionID, tx.Provider, tx.Model, tx.InputTokens, tx.OutputTokens, tx.EstimatedCostUSD, time.Now())
+	_, err := l.db.Exec(query, tx.SessionID, tx.VirtualKeyHash, tx.Provider, tx.Model, tx.InputTokens, tx.OutputTokens, tx.EstimatedCostUSD, time.Now())
 	if err != nil {
 		return err
 	}
@@ -287,14 +292,15 @@ func (l *Ledger) DecrementPoolQuota(nodeID string, tokens int) {
 // v1.3.0: Virtual Key Management
 
 type VirtualKeyRecord struct {
-	ID               int     `json:"id"`
-	KeyHash          string  `json:"key_hash"`
-	Name             string  `json:"name"`
-	AllocatedBudget  float64 `json:"allocated_budget_usd"`
-	ConsumedBudget   float64 `json:"consumed_budget_usd"`
-	OrgID            int     `json:"org_id"`
-	AllowedProviders string  `json:"allowed_providers"`
-	CreatedAt        string  `json:"created_at"`
+	ID               int        `json:"id"`
+	KeyHash          string     `json:"key_hash"`
+	Name             string     `json:"name"`
+	AllocatedBudget  float64    `json:"allocated_budget_usd"`
+	ConsumedBudget   float64    `json:"consumed_budget_usd"`
+	OrgID            int        `json:"org_id"`
+	AllowedProviders string     `json:"allowed_providers"`
+	CurrentState     BudgetZone `json:"current_state"`
+	CreatedAt        string     `json:"created_at"`
 }
 
 type OrganizationRecord struct {
@@ -351,7 +357,7 @@ func (l *Ledger) RegisterVirtualKey(keyHash, name string, allocatedBudget float6
 func (l *Ledger) GetVirtualKeys() ([]VirtualKeyRecord, error) {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
-	rows, err := l.db.Query(`SELECT id, key_hash, name, allocated_budget_usd, consumed_budget_usd, org_id, allowed_providers, created_at FROM tkngate_virtual_keys`)
+	rows, err := l.db.Query(`SELECT id, key_hash, name, allocated_budget_usd, consumed_budget_usd, org_id, allowed_providers, current_state, created_at FROM tkngate_virtual_keys`)
 	if err != nil {
 		return nil, err
 	}
@@ -360,7 +366,7 @@ func (l *Ledger) GetVirtualKeys() ([]VirtualKeyRecord, error) {
 	var keys []VirtualKeyRecord
 	for rows.Next() {
 		var k VirtualKeyRecord
-		if err := rows.Scan(&k.ID, &k.KeyHash, &k.Name, &k.AllocatedBudget, &k.ConsumedBudget, &k.OrgID, &k.AllowedProviders, &k.CreatedAt); err == nil {
+		if err := rows.Scan(&k.ID, &k.KeyHash, &k.Name, &k.AllocatedBudget, &k.ConsumedBudget, &k.OrgID, &k.AllowedProviders, &k.CurrentState, &k.CreatedAt); err == nil {
 			keys = append(keys, k)
 		}
 	}
@@ -375,6 +381,80 @@ func (l *Ledger) ChargeVirtualKey(keyHash string, amount float64) error {
 	defer l.mu.Unlock()
 	_, err := l.db.Exec(`UPDATE tkngate_virtual_keys SET consumed_budget_usd = consumed_budget_usd + ? WHERE key_hash = ?`, amount, keyHash)
 	return err
+}
+
+func (l *Ledger) UpdateVirtualKeyZone(keyHash string, zone BudgetZone) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	_, err := l.db.Exec(`UPDATE tkngate_virtual_keys SET current_state = ? WHERE key_hash = ?`, zone, keyHash)
+	return err
+}
+
+type DailySpend struct {
+	Date     string  `json:"date"`
+	SpendUSD float64 `json:"spend_usd"`
+}
+
+func (l *Ledger) GetDailySpend(days int) ([]DailySpend, error) {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	
+	// Group transactions by date for the last N days
+	query := `
+		SELECT DATE(timestamp) as d, SUM(estimated_cost_usd) 
+		FROM transactions 
+		WHERE timestamp >= date('now', ?) 
+		GROUP BY d 
+		ORDER BY d ASC
+	`
+	rows, err := l.db.Query(query, fmt.Sprintf("-%d days", days))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var daily []DailySpend
+	for rows.Next() {
+		var d DailySpend
+		if err := rows.Scan(&d.Date, &d.SpendUSD); err == nil {
+			daily = append(daily, d)
+		}
+	}
+	return daily, rows.Err()
+}
+
+func (l *Ledger) GetTransactions(keyHash string, limit int) ([]Transaction, error) {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+
+	query := `
+		SELECT id, session_id, virtual_key_hash, provider, model, input_tokens, output_tokens, estimated_cost_usd, timestamp 
+		FROM transactions 
+	`
+	var rows *sql.Rows
+	var err error
+
+	if keyHash != "" {
+		query += `WHERE virtual_key_hash = ? ORDER BY timestamp DESC LIMIT ?`
+		rows, err = l.db.Query(query, keyHash, limit)
+	} else {
+		query += `ORDER BY timestamp DESC LIMIT ?`
+		rows, err = l.db.Query(query, limit)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var txs []Transaction
+	for rows.Next() {
+		var t Transaction
+		if err := rows.Scan(&t.ID, &t.SessionID, &t.VirtualKeyHash, &t.Provider, &t.Model, &t.InputTokens, &t.OutputTokens, &t.EstimatedCostUSD, &t.Timestamp); err == nil {
+			txs = append(txs, t)
+		}
+	}
+	return txs, rows.Err()
 }
 
 func (l *Ledger) RevokeVirtualKey(name string) error {
@@ -435,12 +515,15 @@ func InitMemoryLedger() error {
 		name TEXT NOT NULL,
 		allocated_budget_usd REAL NOT NULL,
 		consumed_budget_usd REAL DEFAULT 0.0,
+		current_state TEXT DEFAULT 'GREEN',
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
 	`
 	if _, err := db.Exec(query); err != nil {
 		return err
 	}
+
+	db.Exec(`ALTER TABLE transactions ADD COLUMN virtual_key_hash TEXT DEFAULT ''`)
 
 	GlobalLedger = &Ledger{db: db}
 	return nil
