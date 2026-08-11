@@ -72,6 +72,7 @@ Your agents authenticate to TknGate with a **virtual key** (an ephemeral proxy t
 - **Cryptographic Audit Trail**: Every outbound API request generates an immutable, hashed audit record mapping agent identity → prompt context → token usage → cost.
 - **ZK-SNARK Attestations**: Mathematically prove a prompt is safe without ever reading its content (Groth16 BN254).
 - **Hard USD Circuit Breakers**: The moment a budget is breached, the connection terminates — not after the billing cycle, **right now, at the byte level.**
+- **Proactive Cost Alerting**: Trigger asynchronous webhooks, Slack messages, or emails the moment a virtual key crosses budget thresholds (AMBER/RED zones), with CSV exports and ML-based burn rate forecasting.
 
 ---
 

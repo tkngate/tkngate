@@ -14,6 +14,7 @@ type Config struct {
 	Server     ServerConfig              `mapstructure:"server" json:"server"`
 	Providers  map[string]ProviderConfig `mapstructure:"providers" json:"providers"`
 	Budget     BudgetConfig              `mapstructure:"budget" json:"budget"`
+	Alerts     AlertConfig               `mapstructure:"alerts" json:"alerts"`
 	Compressor CompressorConfig          `mapstructure:"compressor" json:"compressor"`
 	Cache      CacheConfig               `mapstructure:"cache" json:"cache"`
 	Telemetry  TelemetryConfig           `mapstructure:"telemetry" json:"telemetry"`
@@ -80,6 +81,18 @@ type BudgetConfig struct {
 	AmberThresholdPct int     `mapstructure:"amber_threshold_pct" json:"amber_threshold_pct"`
 	RedThresholdPct   int     `mapstructure:"red_threshold_pct" json:"red_threshold_pct"`
 	ResetInterval     string  `mapstructure:"reset_interval" json:"reset_interval"`
+}
+
+type AlertConfig struct {
+	Enabled        bool   `mapstructure:"enabled" json:"enabled"`
+	SlackWebhook   string `mapstructure:"slack_webhook" json:"slack_webhook"`
+	GenericWebhook string `mapstructure:"generic_webhook" json:"generic_webhook"`
+	EmailSmtpHost  string `mapstructure:"email_smtp_host" json:"email_smtp_host"`
+	EmailSmtpPort  int    `mapstructure:"email_smtp_port" json:"email_smtp_port"`
+	EmailSmtpUser  string `mapstructure:"email_smtp_user" json:"email_smtp_user"`
+	EmailSmtpPass  string `mapstructure:"email_smtp_pass" json:"email_smtp_pass"`
+	EmailFrom      string `mapstructure:"email_from" json:"email_from"`
+	EmailTo        string `mapstructure:"email_to" json:"email_to"`
 }
 
 type CompressorConfig struct {

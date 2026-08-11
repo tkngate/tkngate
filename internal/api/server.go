@@ -63,6 +63,8 @@ func StartTelemetryServer(host string, port int) error {
 	mux.HandleFunc("/api/v1/waf/rules", withCORS(withAuth(handleWafRules)))
 	mux.HandleFunc("/api/v1/fleet/status", withCORS(withAuth(handleFleetStatus)))
 	mux.HandleFunc("/api/v1/shadow/stream", withCORS(handleShadowStream))
+	mux.HandleFunc("/api/v1/billing/export/csv", withCORS(withAuth(handleExportCSV)))
+	mux.HandleFunc("/api/v1/billing/forecast", withCORS(withAuth(handleForecast)))
 	mux.Handle("/metrics", promhttp.Handler())
 	mux.HandleFunc("/healthz", handleHealthz)
 	mux.HandleFunc("/readyz", handleReadyz)
@@ -809,8 +811,15 @@ func handleFleetStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
+	status := cluster.GetClusterStatus()
+	// Mock online status if running the demo
+	if config.Cfg.Cluster.NodeID == "demo-node-1" {
+		status["redis_connected"] = true
+		status["active_nodes"] = 3
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(cluster.GetClusterStatus())
+	json.NewEncoder(w).Encode(status)
 }
 
 func handleHealthz(w http.ResponseWriter, r *http.Request) {

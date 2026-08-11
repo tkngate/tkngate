@@ -2,9 +2,14 @@ package budget
 
 import (
 	"fmt"
+	"sync"
+	"tkngate/internal/alerting"
 	"tkngate/internal/config"
 	"tkngate/internal/logging"
 )
+
+var lastGlobalZone BudgetZone = ZoneGreen
+var globalZoneMu sync.Mutex
 
 // CheckBudget compares the current spend against the config limits
 func CheckBudget() (BudgetStatus, error) {
@@ -39,12 +44,20 @@ func CheckBudget() (BudgetStatus, error) {
 		Zone:          zone,
 	}
 
-	// Log warnings if we shift zones
-	switch zone {
-	case ZoneAmber:
-		logging.Logger.Warn("budget amber zone reached", "spent", spent, "limit", limit)
-	case ZoneRed:
-		logging.Logger.Error("budget red zone reached - circuit breaker tripped", "spent", spent, "limit", limit)
+	// Log warnings and alert if we shift zones
+	globalZoneMu.Lock()
+	if zone != lastGlobalZone && zone != ZoneGreen {
+		lastGlobalZone = zone
+		globalZoneMu.Unlock()
+		
+		if zone == ZoneAmber {
+			logging.Logger.Warn("budget amber zone reached", "spent", spent, "limit", limit)
+		} else if zone == ZoneRed {
+			logging.Logger.Error("budget red zone reached - circuit breaker tripped", "spent", spent, "limit", limit)
+		}
+		alerting.DispatchAlert("Global", "Global Budget", string(zone), spent, limit)
+	} else {
+		globalZoneMu.Unlock()
 	}
 
 	return status, nil
@@ -141,11 +154,15 @@ func CheckVirtualKeyBudget(keyHash string) (BudgetStatus, error) {
 		Zone:          zone,
 	}
 
-	switch zone {
-	case ZoneAmber:
-		logging.Logger.Warn("virtual key budget amber zone reached", "key_hash", keyHash, "spent", spent, "limit", limit)
-	case ZoneRed:
-		logging.Logger.Error("virtual key budget red zone reached - circuit breaker tripped", "key_hash", keyHash, "spent", spent, "limit", limit)
+	if zone != vk.CurrentState && zone != ZoneGreen {
+		GlobalLedger.UpdateVirtualKeyZone(keyHash, zone)
+		
+		if zone == ZoneAmber {
+			logging.Logger.Warn("virtual key budget amber zone reached", "key_hash", keyHash, "spent", spent, "limit", limit)
+		} else if zone == ZoneRed {
+			logging.Logger.Error("virtual key budget red zone reached - circuit breaker tripped", "key_hash", keyHash, "spent", spent, "limit", limit)
+		}
+		alerting.DispatchAlert("VirtualKey", vk.Name, string(zone), spent, limit)
 	}
 
 	return status, nil
