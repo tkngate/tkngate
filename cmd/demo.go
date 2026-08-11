@@ -13,6 +13,7 @@ import (
 	"tkngate/internal/telemetry"
 	"tkngate/internal/config"
 	"tkngate/internal/cluster"
+	"tkngate/internal/budget"
 )
 
 var demoCmd = &cobra.Command{
@@ -88,10 +89,53 @@ func GenerateDemoTraffic(db *sql.DB, isStandalone bool) {
 	models := []string{"gpt-4o", "claude-3-5-sonnet-20240620", "deepseek-chat"}
 	states := []string{"GREEN", "GREEN", "GREEN", "GREEN", "AMBER", "RED"}
 
+	// Ensure demo organizations and keys are always seeded
+	db.Exec(`INSERT OR IGNORE INTO tkngate_organizations (name, allocated_budget_usd, consumed_budget_usd) VALUES (?, ?, ?)`, 
+		"Acme Corp", 5000.0, 699.95)
+		
+	var orgID int
+	db.QueryRow(`SELECT id FROM tkngate_organizations WHERE name = 'Acme Corp'`).Scan(&orgID)
+
+	vkeyHash := "demo-key-hash"
+	db.Exec(`INSERT OR IGNORE INTO tkngate_virtual_keys (key_hash, name, allocated_budget_usd, consumed_budget_usd, org_id, allowed_providers, current_state) VALUES (?, ?, ?, ?, ?, ?, ?)`, 
+		vkeyHash, "Demo Key", 1000.0, 699.95, orgID, "openai,anthropic", "GREEN")
+	// Update existing row in case it was inserted previously without org_id
+	db.Exec(`UPDATE tkngate_virtual_keys SET org_id = ?, allowed_providers = ? WHERE key_hash = ?`, orgID, "openai,anthropic", vkeyHash)
+
+	// Seed historical data for ML Forecasting and CSV exports
+	var txCount int
+	db.QueryRow("SELECT COUNT(*) FROM transactions").Scan(&txCount)
+	if txCount == 0 {
+		now := time.Now()
+		for i := 0; i < 500; i++ {
+			daysAgo := rand.Float64() * 30.0
+			txTime := now.Add(time.Duration(-daysAgo*24) * time.Hour)
+			cost := rand.Float64() * 0.05
+			db.Exec(`
+				INSERT INTO transactions (provider, model, input_tokens, output_tokens, estimated_cost_usd, timestamp, session_id, virtual_key_hash)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+			`, "openai", models[rand.Intn(len(models))], rand.Intn(500), rand.Intn(500), cost, txTime.Format(time.RFC3339), "sess-demo", vkeyHash)
+		}
+		if isStandalone {
+			fmt.Println("  → Seeded 500 historical transactions for ML Forecasting.")
+		}
+	}
+
 	if isStandalone {
 		fmt.Println("Simulating background traffic to budget_demo.db...")
 		fmt.Println("Note: Dashboard is OFFLINE in standalone mode. Run './tkngate serve --demo' if you want to watch this live.")
 	} else {
+		// Force Shadow Mode to be enabled for the demo so the UI populates
+		config.Cfg.Shadow.Enabled = true
+		config.Cfg.Shadow.TrafficFraction = 0.5
+		config.Cfg.Shadow.TargetModel = "claude-3-haiku-20240307"
+		config.Cfg.Shadow.TargetProvider = "anthropic"
+
+		// Force Cluster config for the demo so the Fleet tab populates
+		config.Cfg.Cluster.Enabled = true
+		config.Cfg.Cluster.NodeID = "demo-node-1"
+		cluster.IsLeader = true
+
 		fmt.Println()
 		fmt.Println("■ DEMO MODE: Generating simulated traffic...")
 		fmt.Println("Simulating live traffic. You can watch this live on the dashboard (http://localhost:7478)!")
@@ -152,11 +196,17 @@ func GenerateDemoTraffic(db *sql.DB, isStandalone bool) {
 		modelName := models[rand.Intn(len(models))]
 		if consumed > 0 {
 			_, err = db.Exec(`
-				INSERT INTO transactions (session_id, provider, model, input_tokens, output_tokens, estimated_cost_usd)
-				VALUES (?, ?, ?, ?, ?, ?)
-			`, sessionID, "openai", modelName, rand.Intn(490)+10, rand.Intn(490)+10, consumed)
+				INSERT INTO transactions (session_id, provider, model, input_tokens, output_tokens, estimated_cost_usd, virtual_key_hash)
+				VALUES (?, ?, ?, ?, ?, ?, ?)
+			`, sessionID, "openai", modelName, rand.Intn(490)+10, rand.Intn(490)+10, consumed, "demo-key-hash")
 			if err != nil && isStandalone {
 				fmt.Println("Error inserting tx:", err)
+			}
+			
+			// Increment the virtual key's consumption and trigger the proactive alerting engine
+			db.Exec(`UPDATE tkngate_virtual_keys SET consumed_budget_usd = consumed_budget_usd + ? WHERE key_hash = ?`, consumed, "demo-key-hash")
+			if !isStandalone && budget.GlobalLedger != nil {
+				budget.CheckVirtualKeyBudget("demo-key-hash")
 			}
 			
 			// Update Redis if Clustered
@@ -194,6 +244,18 @@ func GenerateDemoTraffic(db *sql.DB, isStandalone bool) {
 		if action == "ALLOW" && rand.Float64() < 0.1 {
 			atomic.AddInt64(&telemetry.RawPromptsOffloaded, 1)
 			fmt.Printf("[%s] P2P Offload -> %s (bypassed rate limit via peer)\n", time.Now().Format("15:04:05"), sessionID)
+		}
+
+		// Simulate Shadow Traffic for live Diff Viewer (every request with a 30% chance)
+		if rand.Float64() < 0.3 {
+			telemetry.GlobalDiffBroadcaster.Broadcast(telemetry.DiffEvent{
+				PrimaryProvider: "openai",
+				PrimaryModel:    modelName,
+				PrimaryText:     "The capital of France is Paris, located in the north-central part of the country.",
+				ShadowProvider:  "anthropic",
+				ShadowModel:     "claude-3-haiku-20240307",
+				ShadowText:      "Paris is the capital and most populous city of France.",
+			})
 		}
 
 		time.Sleep(time.Duration(500+rand.Intn(2000)) * time.Millisecond)

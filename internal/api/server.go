@@ -811,8 +811,15 @@ func handleFleetStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
+	status := cluster.GetClusterStatus()
+	// Mock online status if running the demo
+	if config.Cfg.Cluster.NodeID == "demo-node-1" {
+		status["redis_connected"] = true
+		status["active_nodes"] = 3
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(cluster.GetClusterStatus())
+	json.NewEncoder(w).Encode(status)
 }
 
 func handleHealthz(w http.ResponseWriter, r *http.Request) {
