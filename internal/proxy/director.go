@@ -99,7 +99,12 @@ func Director(req *http.Request) {
 		req.Header.Set("x-api-key", providerCfg.APIKey)
 		req.Header.Set("anthropic-version", "2023-06-01") // typically required
 	} else if providerKey == "gemini" {
-		req.Header.Set("x-goog-api-key", providerCfg.APIKey)
+		// Google's OpenAI-compatible endpoint (/v1beta/openai/) uses Bearer auth
+		if strings.Contains(providerCfg.BaseURL, "/openai") {
+			req.Header.Set("Authorization", "Bearer "+providerCfg.APIKey)
+		} else {
+			req.Header.Set("x-goog-api-key", providerCfg.APIKey)
+		}
 	} else {
 		req.Header.Set("Authorization", "Bearer "+providerCfg.APIKey)
 	}

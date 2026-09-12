@@ -7,9 +7,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
+	"mime"
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -69,6 +71,13 @@ func StartTelemetryServer(host string, port int) error {
 	mux.HandleFunc("/healthz", handleHealthz)
 	mux.HandleFunc("/readyz", handleReadyz)
 
+	// Ensure correct MIME types on all OS platforms (especially Windows)
+	_ = mime.AddExtensionType(".js", "application/javascript")
+	_ = mime.AddExtensionType(".mjs", "application/javascript")
+	_ = mime.AddExtensionType(".css", "text/css; charset=utf-8")
+	_ = mime.AddExtensionType(".svg", "image/svg+xml")
+	_ = mime.AddExtensionType(".json", "application/json")
+
 	// Serve the embedded React Dashboard
 	subFS, err := fs.Sub(DashboardFS, "ui/dist")
 	if err != nil {
@@ -80,29 +89,30 @@ func StartTelemetryServer(host string, port int) error {
 				http.NotFound(w, r)
 				return
 			}
-			
-			path := strings.TrimPrefix(r.URL.Path, "/")
-			
+
+			// Clean and normalize the requested path
+			cleanPath := strings.TrimPrefix(filepath.ToSlash(filepath.Clean(r.URL.Path)), "/")
+
 			// Helper function to serve index.html with the injected fetch interceptor
 			serveInjectedIndex := func() {
-				f, err := subFS.Open("index.html")
-				if err != nil {
-					http.Error(w, "index.html not found", http.StatusInternalServerError)
-					return
-				}
-				defer f.Close()
-				
-				htmlBytes, _ := os.ReadFile("internal/api/ui/dist/index.html")
-				if len(htmlBytes) == 0 {
-					// Fallback if direct read fails, read from embedded fs
+				// Fallback order: host disk (dev mode) -> embedded subFS
+				htmlBytes, err := os.ReadFile("internal/api/ui/dist/index.html")
+				if err != nil || len(htmlBytes) == 0 {
+					f, err := subFS.Open("index.html")
+					if err != nil {
+						http.Error(w, "index.html not found", http.StatusInternalServerError)
+						return
+					}
+					defer f.Close()
+
 					buf := make([]byte, 10240)
 					n, _ := f.Read(buf)
 					htmlBytes = buf[:n]
 				}
-				
+
 				htmlStr := string(htmlBytes)
 				masterKey := os.Getenv("TKNGATE_MASTER_KEY")
-				
+
 				if masterKey != "" {
 					script := `<script>
 						const originalFetch = window.fetch;
@@ -118,27 +128,55 @@ func StartTelemetryServer(host string, port int) error {
 					</script>`
 					htmlStr = strings.Replace(htmlStr, "<head>", "<head>"+script, 1)
 				}
-				
+
 				w.Header().Set("Content-Type", "text/html; charset=utf-8")
 				w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 				w.Write([]byte(htmlStr))
 			}
 
-			if path == "" || path == "index.html" {
+			if cleanPath == "" || cleanPath == "." || cleanPath == "index.html" {
 				serveInjectedIndex()
 				return
 			}
-			
-			f, err := subFS.Open(path)
-			if err != nil {
-				serveInjectedIndex()
-			} else {
+
+			// Check if the requested file exists on disk (local dev) or embedded FS
+			diskPath := filepath.Join("internal", "api", "ui", "dist", filepath.FromSlash(cleanPath))
+			if info, err := os.Stat(diskPath); err == nil && !info.IsDir() {
+				if ext := filepath.Ext(cleanPath); ext != "" {
+					if ctype := mime.TypeByExtension(ext); ctype != "" {
+						w.Header().Set("Content-Type", ctype)
+					}
+				}
+				w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+				w.Header().Set("Pragma", "no-cache")
+				w.Header().Set("Expires", "0")
+				http.ServeFile(w, r, diskPath)
+				return
+			}
+
+			if f, err := subFS.Open(cleanPath); err == nil {
 				f.Close()
+				if ext := filepath.Ext(cleanPath); ext != "" {
+					if ctype := mime.TypeByExtension(ext); ctype != "" {
+						w.Header().Set("Content-Type", ctype)
+					}
+				}
 				w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 				w.Header().Set("Pragma", "no-cache")
 				w.Header().Set("Expires", "0")
 				fileServer.ServeHTTP(w, r)
+				return
 			}
+
+			// If file was not found and is an asset (/assets/* or has an extension), 404 instead of serving index.html
+			ext := filepath.Ext(cleanPath)
+			if strings.HasPrefix(cleanPath, "assets/") || ext != "" {
+				http.NotFound(w, r)
+				return
+			}
+
+			// SPA fallback: any non-asset route serves index.html
+			serveInjectedIndex()
 		})
 	}
 
