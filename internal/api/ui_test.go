@@ -1,8 +1,8 @@
 package api
 
 import (
-	"fmt"
 	"io/fs"
+	"strings"
 	"testing"
 )
 
@@ -11,18 +11,38 @@ func TestUI(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f, err := subFS.Open("assets/index-_0NaRAgg.js")
+
+	// Verify index.html exists
+	f, err := subFS.Open("index.html")
 	if err != nil {
-		t.Logf("Failed to open file: %v", err)
-		
-		// Let's print what IS in there
-		fs.WalkDir(subFS, ".", func(path string, d fs.DirEntry, err error) error {
-			t.Logf("FOUND IN SUBFS: %s", path)
-			return nil
-		})
-		t.Fail()
-	} else {
-		t.Log("SUCCESSFULLY OPENED FILE!")
-		f.Close()
+		t.Fatalf("Failed to open index.html: %v", err)
+	}
+	f.Close()
+
+	// Verify at least one JS and CSS asset exists
+	var hasJS, hasCSS bool
+	err = fs.WalkDir(subFS, "assets", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() {
+			if strings.HasSuffix(path, ".js") {
+				hasJS = true
+			}
+			if strings.HasSuffix(path, ".css") {
+				hasCSS = true
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("Failed to walk assets dir: %v", err)
+	}
+
+	if !hasJS {
+		t.Error("No JS asset bundle found in ui/dist/assets")
+	}
+	if !hasCSS {
+		t.Error("No CSS asset bundle found in ui/dist/assets")
 	}
 }
